@@ -34,21 +34,23 @@ int main()
 #endif
 
         /* read data*/
-        ssize_t bytesReaded = read(0, InputBuf, MaxInputSize);
-        if (bytesReaded > 0)
+        std::ssize_t bytesReadedS = read(0, InputBuf, MaxInputSize);
+        if (bytesReadedS > 0)
         {
+          std::size_t bytesReaded = static_cast<std::size_t>(bytesReadedS);
             /* allocate memory, exactly bytesReaded to catch overflows */
-            uint8_t* tmpBuf = (uint8_t*)malloc(bytesReaded);
+          std::uint8_t* tmpBuf = static_cast<std::uint8_t*>(malloc(bytesReaded));
             memcpy(tmpBuf, InputBuf, bytesReaded);
 
-#ifdef __AFL_HAVE_MANUAL_CONTROL
             /* run harness*/
             LLVMFuzzerTestOneInput(tmpBuf, bytesReaded);
 
             /* clear */
             free(tmpBuf);
         }
-#endif
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
     }
+#endif
     return 0;
 }
