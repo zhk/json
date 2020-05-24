@@ -9,23 +9,23 @@
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
       
-        <link rel="canonical" href="https://squidfunk.github.io/mkdocs-material/">
+        <link rel="canonical" href="https://squidfunk.github.io/mkdocs-material/features/sax_interface/">
       
       
         <meta name="author" content="Niels Lohmann">
       
-      <link rel="shortcut icon" href="assets/images/favicon.png">
+      <link rel="shortcut icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.2.1">
     
     
       
-        <title>JSON for Modern C++ - JSON for Modern C++</title>
+        <title>SAX Interface - JSON for Modern C++</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.71dfd922.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.71dfd922.min.css">
       
-        <link rel="stylesheet" href="assets/stylesheets/palette.616af814.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.616af814.min.css">
       
       
         
@@ -61,7 +61,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#json-for-modern-c" class="md-skip">
+        <a href="#sax-interface" class="md-skip">
           Skip to content
         </a>
       
@@ -83,8 +83,15 @@
     </label>
     <div class="md-header-nav__title" data-md-component="header-title">
       
-        <div class="md-header-nav__ellipsis md-ellipsis">
-          JSON for Modern C++
+        <div class="md-header-nav__ellipsis">
+          <span class="md-header-nav__topic md-ellipsis">
+            JSON for Modern C++
+          </span>
+          <span class="md-header-nav__topic md-ellipsis">
+            
+              SAX Interface
+            
+          </span>
         </div>
       
     </div>
@@ -155,7 +162,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="." class="md-tabs__link md-tabs__link--active">
+        <a href="../.." class="md-tabs__link">
           Home
         </a>
       
@@ -168,7 +175,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="features/arbitrary_types/" class="md-tabs__link">
+        <a href="../arbitrary_types/" class="md-tabs__link md-tabs__link--active">
           Features
         </a>
       
@@ -181,7 +188,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="integration/" class="md-tabs__link">
+        <a href="../../integration/" class="md-tabs__link">
           Integration
         </a>
       
@@ -194,7 +201,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="doxygen/index.html" class="md-tabs__link">
+        <a href="../../doxygen/index.html" class="md-tabs__link">
           Doxygen
         </a>
       
@@ -244,12 +251,10 @@
       
       
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+  <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-1" type="checkbox" id="nav-1" checked>
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-1" type="checkbox" id="nav-1">
     
     <label class="md-nav__link" for="nav-1">
       Home
@@ -271,20 +276,11 @@
           
           
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active">
-    
-    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    
-      
-    
-    
-    <a href="." title="JSON for Modern C++" class="md-nav__link md-nav__link--active">
+  <li class="md-nav__item">
+    <a href="../.." title="JSON for Modern C++" class="md-nav__link">
       JSON for Modern C++
     </a>
-    
   </li>
 
         
@@ -294,7 +290,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/license/" title="License" class="md-nav__link">
+    <a href="../../home/license/" title="License" class="md-nav__link">
       License
     </a>
   </li>
@@ -306,7 +302,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/code_of_conduct/" title="Code of Conduct" class="md-nav__link">
+    <a href="../../home/code_of_conduct/" title="Code of Conduct" class="md-nav__link">
       Code of Conduct
     </a>
   </li>
@@ -318,7 +314,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/faq/" title="FAQ" class="md-nav__link">
+    <a href="../../home/faq/" title="FAQ" class="md-nav__link">
       FAQ
     </a>
   </li>
@@ -330,7 +326,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/exceptions/" title="Exceptions" class="md-nav__link">
+    <a href="../../home/exceptions/" title="Exceptions" class="md-nav__link">
       Exceptions
     </a>
   </li>
@@ -342,7 +338,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/design_goals/" title="Design goals" class="md-nav__link">
+    <a href="../../home/design_goals/" title="Design goals" class="md-nav__link">
       Design goals
     </a>
   </li>
@@ -354,7 +350,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/sponsors/" title="Sponsors" class="md-nav__link">
+    <a href="../../home/sponsors/" title="Sponsors" class="md-nav__link">
       Sponsors
     </a>
   </li>
@@ -369,10 +365,12 @@
       
       
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
     
     <label class="md-nav__link" for="nav-2">
       Features
@@ -396,7 +394,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/arbitrary_types/" title="Arbitrary Types Conversions" class="md-nav__link">
+    <a href="../arbitrary_types/" title="Arbitrary Types Conversions" class="md-nav__link">
       Arbitrary Types Conversions
     </a>
   </li>
@@ -433,7 +431,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/" title="Overview" class="md-nav__link">
+    <a href="../binary_formats/" title="Overview" class="md-nav__link">
       Overview
     </a>
   </li>
@@ -445,7 +443,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/bson/" title="BSON" class="md-nav__link">
+    <a href="../binary_formats/bson/" title="BSON" class="md-nav__link">
       BSON
     </a>
   </li>
@@ -457,7 +455,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/cbor/" title="CBOR" class="md-nav__link">
+    <a href="../binary_formats/cbor/" title="CBOR" class="md-nav__link">
       CBOR
     </a>
   </li>
@@ -469,7 +467,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/messagepack/" title="MessagePack" class="md-nav__link">
+    <a href="../binary_formats/messagepack/" title="MessagePack" class="md-nav__link">
       MessagePack
     </a>
   </li>
@@ -481,7 +479,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/ubjson/" title="UBJSON" class="md-nav__link">
+    <a href="../binary_formats/ubjson/" title="UBJSON" class="md-nav__link">
       UBJSON
     </a>
   </li>
@@ -498,7 +496,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_values/" title="Binary Values" class="md-nav__link">
+    <a href="../binary_values/" title="Binary Values" class="md-nav__link">
       Binary Values
     </a>
   </li>
@@ -510,7 +508,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/json_pointer/" title="JSON Pointer" class="md-nav__link">
+    <a href="../json_pointer/" title="JSON Pointer" class="md-nav__link">
       JSON Pointer
     </a>
   </li>
@@ -522,7 +520,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/json_patch/" title="JSON Patch" class="md-nav__link">
+    <a href="../json_patch/" title="JSON Patch" class="md-nav__link">
       JSON Patch
     </a>
   </li>
@@ -534,7 +532,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/merge_patch/" title="JSON Merge Patch" class="md-nav__link">
+    <a href="../merge_patch/" title="JSON Merge Patch" class="md-nav__link">
       JSON Merge Patch
     </a>
   </li>
@@ -546,7 +544,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/enum_conversion/" title="Specializing enum conversion" class="md-nav__link">
+    <a href="../enum_conversion/" title="Specializing enum conversion" class="md-nav__link">
       Specializing enum conversion
     </a>
   </li>
@@ -556,11 +554,20 @@
           
           
 
+  
 
-  <li class="md-nav__item">
-    <a href="features/sax_interface/" title="SAX Interface" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+    <a href="./" title="SAX Interface" class="md-nav__link md-nav__link--active">
       SAX Interface
     </a>
+    
   </li>
 
         
@@ -600,7 +607,7 @@
 
 
   <li class="md-nav__item">
-    <a href="integration/" title="Integration" class="md-nav__link">
+    <a href="../../integration/" title="Integration" class="md-nav__link">
       Integration
     </a>
   </li>
@@ -612,7 +619,7 @@
 
 
   <li class="md-nav__item">
-    <a href="integration/cmake/" title="CMake" class="md-nav__link">
+    <a href="../../integration/cmake/" title="CMake" class="md-nav__link">
       CMake
     </a>
   </li>
@@ -624,7 +631,7 @@
 
 
   <li class="md-nav__item">
-    <a href="integration/package_managers/" title="Package Managers" class="md-nav__link">
+    <a href="../../integration/package_managers/" title="Package Managers" class="md-nav__link">
       Package Managers
     </a>
   </li>
@@ -666,7 +673,7 @@
 
 
   <li class="md-nav__item">
-    <a href="doxygen/index.html" title="None" class="md-nav__link">
+    <a href="../../doxygen/index.html" title="None" class="md-nav__link">
       None
     </a>
   </li>
@@ -704,7 +711,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/nlohmann/json/edit/develop/doc/mkdocs/docs/index.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/nlohmann/json/edit/develop/doc/mkdocs/docs/features/sax_interface.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -712,12 +719,44 @@
                   
                 
                 
-                <h1 id="json-for-modern-c">JSON for Modern C++<a class="headerlink" href="#json-for-modern-c" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This page is under construction. You probably want to see the <a href="doxygen">Doxygen documentation</a>.</p>
-</div>
-<p><img alt="" src="images/json.gif" /></p>
+                <h1 id="sax-interface">SAX Interface<a class="headerlink" href="#sax-interface" title="Permanent link">&para;</a></h1>
+<p>The library uses a SAX-like interface with the following functions:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// called when null is parsed</span>
+<span class="kt">bool</span> <span class="nf">null</span><span class="p">();</span>
+
+<span class="c1">// called when a boolean is parsed; value is passed</span>
+<span class="kt">bool</span> <span class="nf">boolean</span><span class="p">(</span><span class="kt">bool</span> <span class="n">val</span><span class="p">);</span>
+
+<span class="c1">// called when a signed or unsigned integer number is parsed; value is passed</span>
+<span class="kt">bool</span> <span class="nf">number_integer</span><span class="p">(</span><span class="n">number_integer_t</span> <span class="n">val</span><span class="p">);</span>
+<span class="kt">bool</span> <span class="nf">number_unsigned</span><span class="p">(</span><span class="n">number_unsigned_t</span> <span class="n">val</span><span class="p">);</span>
+
+<span class="c1">// called when a floating-point number is parsed; value and original string is passed</span>
+<span class="kt">bool</span> <span class="nf">number_float</span><span class="p">(</span><span class="n">number_float_t</span> <span class="n">val</span><span class="p">,</span> <span class="k">const</span> <span class="n">string_t</span><span class="o">&amp;</span> <span class="n">s</span><span class="p">);</span>
+
+<span class="c1">// called when a string is parsed; value is passed and can be safely moved away</span>
+<span class="kt">bool</span> <span class="nf">string</span><span class="p">(</span><span class="n">string_t</span><span class="o">&amp;</span> <span class="n">val</span><span class="p">);</span>
+
+<span class="c1">// called when an object or array begins or ends, resp. The number of elements is passed (or -1 if not known)</span>
+<span class="kt">bool</span> <span class="nf">start_object</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">elements</span><span class="p">);</span>
+<span class="kt">bool</span> <span class="nf">end_object</span><span class="p">();</span>
+<span class="kt">bool</span> <span class="nf">start_array</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">elements</span><span class="p">);</span>
+<span class="kt">bool</span> <span class="nf">end_array</span><span class="p">();</span>
+<span class="c1">// called when an object key is parsed; value is passed and can be safely moved away</span>
+<span class="kt">bool</span> <span class="nf">key</span><span class="p">(</span><span class="n">string_t</span><span class="o">&amp;</span> <span class="n">val</span><span class="p">);</span>
+
+<span class="c1">// called when a parse error occurs; byte position, the last token, and an exception is passed</span>
+<span class="kt">bool</span> <span class="nf">parse_error</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">position</span><span class="p">,</span> <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span> <span class="n">last_token</span><span class="p">,</span> <span class="k">const</span> <span class="n">detail</span><span class="o">::</span><span class="n">exception</span><span class="o">&amp;</span> <span class="n">ex</span><span class="p">);</span>
+</code></pre></div>
+
+<p>The return value of each function determines whether parsing should proceed.</p>
+<p>To implement your own SAX handler, proceed as follows:</p>
+<ol>
+<li>Implement the SAX interface in a class. You can use class <code>nlohmann::json_sax&lt;json&gt;</code> as base class, but you can also use any class where the functions described above are implemented and public.</li>
+<li>Create an object of your SAX interface class, e.g. <code>my_sax</code>.</li>
+<li>Call <code class="highlight"><span class="kt">bool</span> <span class="n">json</span><span class="o">::</span><span class="n">sax_parse</span><span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">my_sax</span><span class="p">);</span></code> where the first parameter can be any input like a string or an input stream and the second parameter is a pointer to your SAX interface.</li>
+</ol>
+<p>Note the <code>sax_parse</code> function only returns a <code class="highlight"><span class="kt">bool</span></code> indicating the result of the last executed SAX event. It does not return <code>json</code> value - it is up to you to decide what to do with the SAX events. Furthermore, no exceptions are thrown in case of a parse error - it is up to you what to do with the exception object passed to your <code>parse_error</code> implementation. Internally, the SAX interface is used for the DOM parser (class <code>json_sax_dom_parser</code>) as well as the acceptor (<code>json_sax_acceptor</code>), see file <code>json_sax.hpp</code>.</p>
                 
               
               
@@ -736,14 +775,28 @@
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
         
+          <a href="../enum_conversion/" title="Specializing enum conversion" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Specializing enum conversion
+              </div>
+            </div>
+          </a>
         
-          <a href="home/license/" title="License" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+        
+          <a href="../../integration/" title="Integration" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
             <div class="md-footer-nav__title">
               <div class="md-ellipsis">
                 <span class="md-footer-nav__direction">
                   Next
                 </span>
-                License
+                Integration
               </div>
             </div>
             <div class="md-footer-nav__button md-icon">
@@ -823,15 +876,15 @@
       
     </div>
     
-      <script src="assets/javascripts/vendor.d710d30a.min.js"></script>
-      <script src="assets/javascripts/bundle.5f27aba8.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      <script src="../../assets/javascripts/vendor.d710d30a.min.js"></script>
+      <script src="../../assets/javascripts/bundle.5f27aba8.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({
-          base: ".",
+          base: "../..",
           features: ["tabs", "instant"],
           search: Object.assign({
-            worker: "assets/javascripts/worker/search.27c6a5e6.min.js"
+            worker: "../../assets/javascripts/worker/search.27c6a5e6.min.js"
           }, typeof search !== "undefined" && search)
         })
       </script>

@@ -9,23 +9,23 @@
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
       
-        <link rel="canonical" href="https://squidfunk.github.io/mkdocs-material/">
+        <link rel="canonical" href="https://squidfunk.github.io/mkdocs-material/features/binary_formats/bson/">
       
       
         <meta name="author" content="Niels Lohmann">
       
-      <link rel="shortcut icon" href="assets/images/favicon.png">
+      <link rel="shortcut icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.2.1">
     
     
       
-        <title>JSON for Modern C++ - JSON for Modern C++</title>
+        <title>BSON - JSON for Modern C++</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.71dfd922.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.71dfd922.min.css">
       
-        <link rel="stylesheet" href="assets/stylesheets/palette.616af814.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.616af814.min.css">
       
       
         
@@ -61,7 +61,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#json-for-modern-c" class="md-skip">
+        <a href="#bson" class="md-skip">
           Skip to content
         </a>
       
@@ -83,8 +83,15 @@
     </label>
     <div class="md-header-nav__title" data-md-component="header-title">
       
-        <div class="md-header-nav__ellipsis md-ellipsis">
-          JSON for Modern C++
+        <div class="md-header-nav__ellipsis">
+          <span class="md-header-nav__topic md-ellipsis">
+            JSON for Modern C++
+          </span>
+          <span class="md-header-nav__topic md-ellipsis">
+            
+              BSON
+            
+          </span>
         </div>
       
     </div>
@@ -155,7 +162,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="." class="md-tabs__link md-tabs__link--active">
+        <a href="../../.." class="md-tabs__link">
           Home
         </a>
       
@@ -168,7 +175,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="features/arbitrary_types/" class="md-tabs__link">
+        <a href="../../arbitrary_types/" class="md-tabs__link md-tabs__link--active">
           Features
         </a>
       
@@ -181,7 +188,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="integration/" class="md-tabs__link">
+        <a href="../../../integration/" class="md-tabs__link">
           Integration
         </a>
       
@@ -194,7 +201,7 @@
   
     <li class="md-tabs__item">
       
-        <a href="doxygen/index.html" class="md-tabs__link">
+        <a href="../../../doxygen/index.html" class="md-tabs__link">
           Doxygen
         </a>
       
@@ -244,12 +251,10 @@
       
       
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+  <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-1" type="checkbox" id="nav-1" checked>
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-1" type="checkbox" id="nav-1">
     
     <label class="md-nav__link" for="nav-1">
       Home
@@ -271,20 +276,11 @@
           
           
 
-  
 
-
-  <li class="md-nav__item md-nav__item--active">
-    
-    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    
-      
-    
-    
-    <a href="." title="JSON for Modern C++" class="md-nav__link md-nav__link--active">
+  <li class="md-nav__item">
+    <a href="../../.." title="JSON for Modern C++" class="md-nav__link">
       JSON for Modern C++
     </a>
-    
   </li>
 
         
@@ -294,7 +290,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/license/" title="License" class="md-nav__link">
+    <a href="../../../home/license/" title="License" class="md-nav__link">
       License
     </a>
   </li>
@@ -306,7 +302,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/code_of_conduct/" title="Code of Conduct" class="md-nav__link">
+    <a href="../../../home/code_of_conduct/" title="Code of Conduct" class="md-nav__link">
       Code of Conduct
     </a>
   </li>
@@ -318,7 +314,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/faq/" title="FAQ" class="md-nav__link">
+    <a href="../../../home/faq/" title="FAQ" class="md-nav__link">
       FAQ
     </a>
   </li>
@@ -330,7 +326,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/exceptions/" title="Exceptions" class="md-nav__link">
+    <a href="../../../home/exceptions/" title="Exceptions" class="md-nav__link">
       Exceptions
     </a>
   </li>
@@ -342,7 +338,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/design_goals/" title="Design goals" class="md-nav__link">
+    <a href="../../../home/design_goals/" title="Design goals" class="md-nav__link">
       Design goals
     </a>
   </li>
@@ -354,7 +350,7 @@
 
 
   <li class="md-nav__item">
-    <a href="home/sponsors/" title="Sponsors" class="md-nav__link">
+    <a href="../../../home/sponsors/" title="Sponsors" class="md-nav__link">
       Sponsors
     </a>
   </li>
@@ -369,10 +365,12 @@
       
       
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
     
     <label class="md-nav__link" for="nav-2">
       Features
@@ -396,7 +394,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/arbitrary_types/" title="Arbitrary Types Conversions" class="md-nav__link">
+    <a href="../../arbitrary_types/" title="Arbitrary Types Conversions" class="md-nav__link">
       Arbitrary Types Conversions
     </a>
   </li>
@@ -406,10 +404,12 @@
           
           
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2" type="checkbox" id="nav-2-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2" type="checkbox" id="nav-2-2" checked>
     
     <label class="md-nav__link" for="nav-2-2">
       Binary Formats
@@ -433,7 +433,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/" title="Overview" class="md-nav__link">
+    <a href="../" title="Overview" class="md-nav__link">
       Overview
     </a>
   </li>
@@ -443,11 +443,60 @@
           
           
 
+  
 
-  <li class="md-nav__item">
-    <a href="features/binary_formats/bson/" title="BSON" class="md-nav__link">
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        BSON
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
+    <a href="./" title="BSON" class="md-nav__link md-nav__link--active">
       BSON
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#serialization" class="md-nav__link">
+    Serialization
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deserialization" class="md-nav__link">
+    Deserialization
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+    
   </li>
 
         
@@ -457,7 +506,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/cbor/" title="CBOR" class="md-nav__link">
+    <a href="../cbor/" title="CBOR" class="md-nav__link">
       CBOR
     </a>
   </li>
@@ -469,7 +518,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/messagepack/" title="MessagePack" class="md-nav__link">
+    <a href="../messagepack/" title="MessagePack" class="md-nav__link">
       MessagePack
     </a>
   </li>
@@ -481,7 +530,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_formats/ubjson/" title="UBJSON" class="md-nav__link">
+    <a href="../ubjson/" title="UBJSON" class="md-nav__link">
       UBJSON
     </a>
   </li>
@@ -498,7 +547,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/binary_values/" title="Binary Values" class="md-nav__link">
+    <a href="../../binary_values/" title="Binary Values" class="md-nav__link">
       Binary Values
     </a>
   </li>
@@ -510,7 +559,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/json_pointer/" title="JSON Pointer" class="md-nav__link">
+    <a href="../../json_pointer/" title="JSON Pointer" class="md-nav__link">
       JSON Pointer
     </a>
   </li>
@@ -522,7 +571,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/json_patch/" title="JSON Patch" class="md-nav__link">
+    <a href="../../json_patch/" title="JSON Patch" class="md-nav__link">
       JSON Patch
     </a>
   </li>
@@ -534,7 +583,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/merge_patch/" title="JSON Merge Patch" class="md-nav__link">
+    <a href="../../merge_patch/" title="JSON Merge Patch" class="md-nav__link">
       JSON Merge Patch
     </a>
   </li>
@@ -546,7 +595,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/enum_conversion/" title="Specializing enum conversion" class="md-nav__link">
+    <a href="../../enum_conversion/" title="Specializing enum conversion" class="md-nav__link">
       Specializing enum conversion
     </a>
   </li>
@@ -558,7 +607,7 @@
 
 
   <li class="md-nav__item">
-    <a href="features/sax_interface/" title="SAX Interface" class="md-nav__link">
+    <a href="../../sax_interface/" title="SAX Interface" class="md-nav__link">
       SAX Interface
     </a>
   </li>
@@ -600,7 +649,7 @@
 
 
   <li class="md-nav__item">
-    <a href="integration/" title="Integration" class="md-nav__link">
+    <a href="../../../integration/" title="Integration" class="md-nav__link">
       Integration
     </a>
   </li>
@@ -612,7 +661,7 @@
 
 
   <li class="md-nav__item">
-    <a href="integration/cmake/" title="CMake" class="md-nav__link">
+    <a href="../../../integration/cmake/" title="CMake" class="md-nav__link">
       CMake
     </a>
   </li>
@@ -624,7 +673,7 @@
 
 
   <li class="md-nav__item">
-    <a href="integration/package_managers/" title="Package Managers" class="md-nav__link">
+    <a href="../../../integration/package_managers/" title="Package Managers" class="md-nav__link">
       Package Managers
     </a>
   </li>
@@ -666,7 +715,7 @@
 
 
   <li class="md-nav__item">
-    <a href="doxygen/index.html" title="None" class="md-nav__link">
+    <a href="../../../doxygen/index.html" title="None" class="md-nav__link">
       None
     </a>
   </li>
@@ -694,6 +743,30 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#serialization" class="md-nav__link">
+    Serialization
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deserialization" class="md-nav__link">
+    Deserialization
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -704,7 +777,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/nlohmann/json/edit/develop/doc/mkdocs/docs/index.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/nlohmann/json/edit/develop/doc/mkdocs/docs/features/binary_formats/bson.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -712,12 +785,295 @@
                   
                 
                 
-                <h1 id="json-for-modern-c">JSON for Modern C++<a class="headerlink" href="#json-for-modern-c" title="Permanent link">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This page is under construction. You probably want to see the <a href="doxygen">Doxygen documentation</a>.</p>
+                <h1 id="bson">BSON<a class="headerlink" href="#bson" title="Permanent link">&para;</a></h1>
+<p>BSON, short for Bin­ary JSON, is a bin­ary-en­coded seri­al­iz­a­tion of JSON-like doc­u­ments. Like JSON, BSON sup­ports the em­bed­ding of doc­u­ments and ar­rays with­in oth­er doc­u­ments and ar­rays. BSON also con­tains ex­ten­sions that al­low rep­res­ent­a­tion of data types that are not part of the JSON spec. For ex­ample, BSON has a Date type and a BinData type.</p>
+<div class="admonition abstract">
+<p class="admonition-title">References</p>
+<ul>
+<li><a href="http://bsonspec.org">BSON Website</a> - the main source on BSON</li>
+<li><a href="http://bsonspec.org/spec.html">BSON Specification</a> - the specification</li>
+</ul>
 </div>
-<p><img alt="" src="images/json.gif" /></p>
+<h2 id="serialization">Serialization<a class="headerlink" href="#serialization" title="Permanent link">&para;</a></h2>
+<p>The library uses the following mapping from JSON values types to BSON types:</p>
+<table>
+<thead>
+<tr>
+<th>JSON value type</th>
+<th>value/range</th>
+<th>BSON type</th>
+<th>marker</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>null</td>
+<td><code>null</code></td>
+<td>null</td>
+<td>0x0A</td>
+</tr>
+<tr>
+<td>boolean</td>
+<td><code>true</code>, <code>false</code></td>
+<td>boolean</td>
+<td>0x08</td>
+</tr>
+<tr>
+<td>number_integer</td>
+<td>-9223372036854775808..-2147483649</td>
+<td>int64</td>
+<td>0x12</td>
+</tr>
+<tr>
+<td>number_integer</td>
+<td>-2147483648..2147483647</td>
+<td>int32</td>
+<td>0x10</td>
+</tr>
+<tr>
+<td>number_integer</td>
+<td>2147483648..9223372036854775807</td>
+<td>int64</td>
+<td>0x12</td>
+</tr>
+<tr>
+<td>number_unsigned</td>
+<td>0..2147483647</td>
+<td>int32</td>
+<td>0x10</td>
+</tr>
+<tr>
+<td>number_unsigned</td>
+<td>2147483648..9223372036854775807</td>
+<td>int64</td>
+<td>0x12</td>
+</tr>
+<tr>
+<td>number_unsigned</td>
+<td>9223372036854775808..18446744073709551615</td>
+<td>--</td>
+<td>--</td>
+</tr>
+<tr>
+<td>number_float</td>
+<td><em>any value</em></td>
+<td>double</td>
+<td>0x01</td>
+</tr>
+<tr>
+<td>string</td>
+<td><em>any value</em></td>
+<td>string</td>
+<td>0x02</td>
+</tr>
+<tr>
+<td>array</td>
+<td><em>any value</em></td>
+<td>document</td>
+<td>0x04</td>
+</tr>
+<tr>
+<td>object</td>
+<td><em>any value</em></td>
+<td>document</td>
+<td>0x03</td>
+</tr>
+<tr>
+<td>binary</td>
+<td><em>any value</em></td>
+<td>binary</td>
+<td>0x05</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Incomplete mapping</p>
+<p>The mapping is <strong>incomplete</strong>, since only JSON-objects (and things
+contained therein) can be serialized to BSON.
+Also, integers larger than 9223372036854775807 cannot be serialized to BSON,
+and the keys may not contain U+0000, since they are serialized a
+zero-terminated c-strings.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;iomanip&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;nlohmann/json.hpp&gt;</span><span class="cp"></span>
+
+<span class="k">using</span> <span class="n">json</span> <span class="o">=</span> <span class="n">nlohmann</span><span class="o">::</span><span class="n">json</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// create a JSON value</span>
+    <span class="n">json</span> <span class="n">j</span> <span class="o">=</span> <span class="sa">R</span><span class="s">&quot;</span><span class="dl">(</span><span class="s">{&quot;compact&quot;: true, &quot;schema&quot;: 0}</span><span class="dl">)</span><span class="s">&quot;</span><span class="n">_json</span><span class="p">;</span>
+
+    <span class="c1">// serialize it to BSON</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="n">v</span> <span class="o">=</span> <span class="n">json</span><span class="o">::</span><span class="n">to_bson</span><span class="p">(</span><span class="n">j</span><span class="p">);</span>
+
+    <span class="c1">// print the vector content</span>
+    <span class="k">for</span> <span class="p">(</span><span class="k">auto</span><span class="o">&amp;</span> <span class="nl">byte</span> <span class="p">:</span> <span class="n">v</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;0x&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">hex</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">setw</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">setfill</span><span class="p">(</span><span class="sc">&#39;0&#39;</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">byte</span> <span class="o">&lt;&lt;</span> <span class="s">&quot; &quot;</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Output:</p>
+<div class="highlight"><pre><span></span><code><span class="mh">0x1b</span> <span class="mh">0x00</span> <span class="mh">0x00</span> <span class="mh">0x00</span> <span class="mh">0x08</span> <span class="mh">0x63</span> <span class="mh">0x6f</span> <span class="mh">0x6d</span> <span class="mh">0x70</span> <span class="mh">0x61</span> <span class="mh">0x63</span> <span class="mh">0x74</span> <span class="mh">0x00</span> <span class="mh">0x01</span> <span class="mh">0x10</span> <span class="mh">0x73</span> <span class="mh">0x63</span> <span class="mh">0x68</span> <span class="mh">0x65</span> <span class="mh">0x6d</span> <span class="mh">0x61</span> <span class="mh">0x00</span> <span class="mh">0x00</span> <span class="mh">0x00</span> <span class="mh">0x00</span> <span class="mh">0x00</span> <span class="mh">0x00</span> 
+</code></pre></div>
+
+</div>
+<h2 id="deserialization">Deserialization<a class="headerlink" href="#deserialization" title="Permanent link">&para;</a></h2>
+<p>The library maps BSON record types to JSON value types as follows:</p>
+<table>
+<thead>
+<tr>
+<th>BSON type</th>
+<th>BSON marker byte</th>
+<th>JSON value type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>double</td>
+<td>0x01</td>
+<td>number_float</td>
+</tr>
+<tr>
+<td>string</td>
+<td>0x02</td>
+<td>string</td>
+</tr>
+<tr>
+<td>document</td>
+<td>0x03</td>
+<td>object</td>
+</tr>
+<tr>
+<td>array</td>
+<td>0x04</td>
+<td>array</td>
+</tr>
+<tr>
+<td>binary</td>
+<td>0x05</td>
+<td>binary</td>
+</tr>
+<tr>
+<td>undefined</td>
+<td>0x06</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>ObjectId</td>
+<td>0x07</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>boolean</td>
+<td>0x08</td>
+<td>boolean</td>
+</tr>
+<tr>
+<td>UTC Date-Time</td>
+<td>0x09</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>null</td>
+<td>0x0A</td>
+<td>null</td>
+</tr>
+<tr>
+<td>Regular Expr.</td>
+<td>0x0B</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>DB Pointer</td>
+<td>0x0C</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>JavaScript Code</td>
+<td>0x0D</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>Symbol</td>
+<td>0x0E</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>JavaScript Code</td>
+<td>0x0F</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>int32</td>
+<td>0x10</td>
+<td>number_integer</td>
+</tr>
+<tr>
+<td>Timestamp</td>
+<td>0x11</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>128-bit decimal float</td>
+<td>0x13</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>Max Key</td>
+<td>0x7F</td>
+<td><em>unsupported</em></td>
+</tr>
+<tr>
+<td>Min Key</td>
+<td>0xFF</td>
+<td><em>unsupported</em></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Incomplete mapping</p>
+<p>The mapping is <strong>incomplete</strong>. The unsupported mappings are indicated in the table above.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;iomanip&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;nlohmann/json.hpp&gt;</span><span class="cp"></span>
+
+<span class="k">using</span> <span class="n">json</span> <span class="o">=</span> <span class="n">nlohmann</span><span class="o">::</span><span class="n">json</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// create byte vector</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="n">v</span> <span class="o">=</span> <span class="p">{</span><span class="mh">0x1b</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x08</span><span class="p">,</span> <span class="mh">0x63</span><span class="p">,</span> <span class="mh">0x6f</span><span class="p">,</span> <span class="mh">0x6d</span><span class="p">,</span>
+                              <span class="mh">0x70</span><span class="p">,</span> <span class="mh">0x61</span><span class="p">,</span> <span class="mh">0x63</span><span class="p">,</span> <span class="mh">0x74</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x01</span><span class="p">,</span> <span class="mh">0x10</span><span class="p">,</span> <span class="mh">0x73</span><span class="p">,</span>
+                              <span class="mh">0x63</span><span class="p">,</span> <span class="mh">0x68</span><span class="p">,</span> <span class="mh">0x65</span><span class="p">,</span> <span class="mh">0x6d</span><span class="p">,</span> <span class="mh">0x61</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span>
+                              <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x00</span>
+                             <span class="p">};</span>
+
+    <span class="c1">// deserialize it with BSON</span>
+    <span class="n">json</span> <span class="n">j</span> <span class="o">=</span> <span class="n">json</span><span class="o">::</span><span class="n">from_bson</span><span class="p">(</span><span class="n">v</span><span class="p">);</span>
+
+    <span class="c1">// print the deserialized JSON value</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">setw</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="n">j</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Output:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+  <span class="nt">&quot;compact&quot;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+  <span class="nt">&quot;schema&quot;</span><span class="p">:</span> <span class="mi">0</span>
+<span class="p">}</span>
+</code></pre></div>
+
+</div>
                 
               
               
@@ -736,14 +1092,28 @@
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
         
+          <a href="../" title="Overview" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Overview
+              </div>
+            </div>
+          </a>
         
-          <a href="home/license/" title="License" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+        
+          <a href="../cbor/" title="CBOR" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
             <div class="md-footer-nav__title">
               <div class="md-ellipsis">
                 <span class="md-footer-nav__direction">
                   Next
                 </span>
-                License
+                CBOR
               </div>
             </div>
             <div class="md-footer-nav__button md-icon">
@@ -823,15 +1193,15 @@
       
     </div>
     
-      <script src="assets/javascripts/vendor.d710d30a.min.js"></script>
-      <script src="assets/javascripts/bundle.5f27aba8.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      <script src="../../../assets/javascripts/vendor.d710d30a.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.5f27aba8.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({
-          base: ".",
+          base: "../../..",
           features: ["tabs", "instant"],
           search: Object.assign({
-            worker: "assets/javascripts/worker/search.27c6a5e6.min.js"
+            worker: "../../../assets/javascripts/worker/search.27c6a5e6.min.js"
           }, typeof search !== "undefined" && search)
         })
       </script>
