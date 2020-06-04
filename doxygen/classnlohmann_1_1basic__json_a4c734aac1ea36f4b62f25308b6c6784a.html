@@ -627,7 +627,7 @@ The container storage is contiguous. Violating this precondition yields undefine
 </pre> The <a href="https://github.com/nlohmann/json/blob/develop/doc/examples/parse__contiguouscontainer__parser_callback_t.cpp">example code</a> above can be translated with<pre class="fragment">g++ -std=c++11 -Isingle_include doc/examples/parse__contiguouscontainer__parser_callback_t.cpp -o parse__contiguouscontainer__parser_callback_t </pre></dd></dl>
 <dl class="section since"><dt>Since</dt><dd>version 2.0.3 (contiguous containers) </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="json_8hpp_source.html#l22416">22416</a> of file <a class="el" href="json_8hpp_source.html">json.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="json_8hpp_source.html#l22417">22417</a> of file <a class="el" href="json_8hpp_source.html">json.hpp</a>.</p>
 
 </div>
 </div>
@@ -635,13 +635,13 @@ The container storage is contiguous. Violating this precondition yields undefine
   </tr>
 </table>
 </div><!-- contents -->
-<div class="ttc" id="aclassnlohmann_1_1basic__json_a4c734aac1ea36f4b62f25308b6c6784a_html_a4c734aac1ea36f4b62f25308b6c6784a"><div class="ttname"><a href="classnlohmann_1_1basic__json_a4c734aac1ea36f4b62f25308b6c6784a.html#a4c734aac1ea36f4b62f25308b6c6784a">nlohmann::basic_json::parse</a></div><div class="ttdeci">static  basic_json parse(InputType &amp;&amp;i, const parser_callback_t cb=nullptr, const bool allow_exceptions=true)</div><div class="ttdoc">deserialize from a compatible input</div><div class="ttdef"><b>Definition:</b> <a href="json_8hpp_source.html#l22416">json.hpp:22416</a></div></div>
-<div class="ttc" id="aclassnlohmann_1_1basic__json_a87cd77e74fd386d93f26ad04bd01b6a5_html_a87cd77e74fd386d93f26ad04bd01b6a5"><div class="ttname"><a href="classnlohmann_1_1basic__json_a87cd77e74fd386d93f26ad04bd01b6a5.html#a87cd77e74fd386d93f26ad04bd01b6a5">nlohmann::basic_json::parser_callback_t</a></div><div class="ttdeci">detail::parser_callback_t&lt; basic_json &gt; parser_callback_t</div><div class="ttdoc">per-element parser callback type</div><div class="ttdef"><b>Definition:</b> <a href="json_8hpp_source.html#l17089">json.hpp:17089</a></div></div>
-<div class="ttc" id="aclassnlohmann_1_1basic__json_a5d8fbc60f29db1c02fa8ce0828fcdc1d_html_a5d8fbc60f29db1c02fa8ce0828fcdc1d"><div class="ttname"><a href="classnlohmann_1_1basic__json_a5d8fbc60f29db1c02fa8ce0828fcdc1d.html#a5d8fbc60f29db1c02fa8ce0828fcdc1d">nlohmann::basic_json::parse_event_t</a></div><div class="ttdeci">detail::parse_event_t parse_event_t</div><div class="ttdoc">parser event types</div><div class="ttdef"><b>Definition:</b> <a href="json_8hpp_source.html#l17038">json.hpp:17038</a></div></div>
+<div class="ttc" id="aclassnlohmann_1_1basic__json_a4c734aac1ea36f4b62f25308b6c6784a_html_a4c734aac1ea36f4b62f25308b6c6784a"><div class="ttname"><a href="classnlohmann_1_1basic__json_a4c734aac1ea36f4b62f25308b6c6784a.html#a4c734aac1ea36f4b62f25308b6c6784a">nlohmann::basic_json::parse</a></div><div class="ttdeci">static  basic_json parse(InputType &amp;&amp;i, const parser_callback_t cb=nullptr, const bool allow_exceptions=true)</div><div class="ttdoc">deserialize from a compatible input</div><div class="ttdef"><b>Definition:</b> <a href="json_8hpp_source.html#l22417">json.hpp:22417</a></div></div>
+<div class="ttc" id="aclassnlohmann_1_1basic__json_a87cd77e74fd386d93f26ad04bd01b6a5_html_a87cd77e74fd386d93f26ad04bd01b6a5"><div class="ttname"><a href="classnlohmann_1_1basic__json_a87cd77e74fd386d93f26ad04bd01b6a5.html#a87cd77e74fd386d93f26ad04bd01b6a5">nlohmann::basic_json::parser_callback_t</a></div><div class="ttdeci">detail::parser_callback_t&lt; basic_json &gt; parser_callback_t</div><div class="ttdoc">per-element parser callback type</div><div class="ttdef"><b>Definition:</b> <a href="json_8hpp_source.html#l17090">json.hpp:17090</a></div></div>
+<div class="ttc" id="aclassnlohmann_1_1basic__json_a5d8fbc60f29db1c02fa8ce0828fcdc1d_html_a5d8fbc60f29db1c02fa8ce0828fcdc1d"><div class="ttname"><a href="classnlohmann_1_1basic__json_a5d8fbc60f29db1c02fa8ce0828fcdc1d.html#a5d8fbc60f29db1c02fa8ce0828fcdc1d">nlohmann::basic_json::parse_event_t</a></div><div class="ttdeci">detail::parse_event_t parse_event_t</div><div class="ttdoc">parser event types</div><div class="ttdef"><b>Definition:</b> <a href="json_8hpp_source.html#l17039">json.hpp:17039</a></div></div>
 <div class="ttc" id="anamespacenlohmann_a2bfd99e845a2e5cd90aeaf1b1431f474_html_a2bfd99e845a2e5cd90aeaf1b1431f474"><div class="ttname"><a href="namespacenlohmann_a2bfd99e845a2e5cd90aeaf1b1431f474.html#a2bfd99e845a2e5cd90aeaf1b1431f474">nlohmann::json</a></div><div class="ttdeci">basic_json&lt;&gt; json</div><div class="ttdoc">default JSON class</div><div class="ttdef"><b>Definition:</b> <a href="json_8hpp_source.html#l02774">json.hpp:2774</a></div></div>
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Tue May 26 2020 14:16:25 for JSON for Modern C++ by &#160;<a href="http://www.doxygen.org/index.html">
+Generated on Thu Jun 4 2020 14:01:36 for JSON for Modern C++ by &#160;<a href="http://www.doxygen.org/index.html">
 <img class="footer" src="doxygen.png" alt="doxygen"/>
 </a> 1.8.19
 </small></address>
