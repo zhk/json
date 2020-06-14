@@ -1314,6 +1314,13 @@
     <member kind="function" static="yes">
       <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
       <name>parse</name>
+      <anchorfile>classnlohmann_1_1basic__json_a7c2810819d5bb201063c17fba074a911.html</anchorfile>
+      <anchor>a7c2810819d5bb201063c17fba074a911</anchor>
+      <arglist>(IteratorType first, IteratorType last, const parser_callback_t cb=nullptr, const bool allow_exceptions=true)</arglist>
+    </member>
+    <member kind="function" static="yes">
+      <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
+      <name>parse</name>
       <anchorfile>classnlohmann_1_1basic__json_a08a4409d59797b1a6ce834b11aad7a98.html</anchorfile>
       <anchor>a08a4409d59797b1a6ce834b11aad7a98</anchor>
       <arglist>(detail::span_input_adapter &amp;&amp;i, const parser_callback_t cb=nullptr, const bool allow_exceptions=true)</arglist>
@@ -1328,8 +1335,15 @@
     <member kind="function" static="yes">
       <type>static bool</type>
       <name>accept</name>
-      <anchorfile>classnlohmann_1_1basic__json_a55a751d04742e802e56d2d1fb1fa8894.html</anchorfile>
-      <anchor>a55a751d04742e802e56d2d1fb1fa8894</anchor>
+      <anchorfile>classnlohmann_1_1basic__json_a7dc0977ab6744b3a73736dd406660bc8.html</anchorfile>
+      <anchor>a7dc0977ab6744b3a73736dd406660bc8</anchor>
+      <arglist>(IteratorType first, IteratorType last)</arglist>
+    </member>
+    <member kind="function" static="yes">
+      <type>static JSON_HEDLEY_WARN_UNUSED_RESULT bool</type>
+      <name>accept</name>
+      <anchorfile>classnlohmann_1_1basic__json_acc4104c4106fa50078c9986365e29386.html</anchorfile>
+      <anchor>acc4104c4106fa50078c9986365e29386</anchor>
       <arglist>(detail::span_input_adapter &amp;&amp;i)</arglist>
     </member>
     <member kind="function" static="yes">
@@ -1342,30 +1356,16 @@
     <member kind="function" static="yes">
       <type>static bool</type>
       <name>sax_parse</name>
-      <anchorfile>classnlohmann_1_1basic__json_a2d4b79f345a9b2f93211f005c0e14121.html</anchorfile>
-      <anchor>a2d4b79f345a9b2f93211f005c0e14121</anchor>
-      <arglist>(detail::span_input_adapter &amp;&amp;i, SAX *sax, input_format_t format=input_format_t::json, const bool strict=true)</arglist>
-    </member>
-    <member kind="function" static="yes">
-      <type>static basic_json</type>
-      <name>parse</name>
-      <anchorfile>classnlohmann_1_1basic__json_a0837217bb8415b37a13233da239c0005.html</anchorfile>
-      <anchor>a0837217bb8415b37a13233da239c0005</anchor>
-      <arglist>(IteratorType first, IteratorType last, const parser_callback_t cb=nullptr, const bool allow_exceptions=true)</arglist>
-    </member>
-    <member kind="function" static="yes">
-      <type>static bool</type>
-      <name>accept</name>
-      <anchorfile>classnlohmann_1_1basic__json_a1eeba1043ffc896a27a242b7de2a58d5.html</anchorfile>
-      <anchor>a1eeba1043ffc896a27a242b7de2a58d5</anchor>
-      <arglist>(IteratorType first, IteratorType last)</arglist>
+      <anchorfile>classnlohmann_1_1basic__json_a56dca2a3714d0e00588a69b2f396dad6.html</anchorfile>
+      <anchor>a56dca2a3714d0e00588a69b2f396dad6</anchor>
+      <arglist>(IteratorType first, IteratorType last, SAX *sax, input_format_t format=input_format_t::json, const bool strict=true)</arglist>
     </member>
     <member kind="function" static="yes">
       <type>static bool</type>
       <name>sax_parse</name>
-      <anchorfile>classnlohmann_1_1basic__json_a100dd0ecc7dfe3a8c2e1726c73ff3b63.html</anchorfile>
-      <anchor>a100dd0ecc7dfe3a8c2e1726c73ff3b63</anchor>
-      <arglist>(IteratorType first, IteratorType last, SAX *sax)</arglist>
+      <anchorfile>classnlohmann_1_1basic__json_a2d4b79f345a9b2f93211f005c0e14121.html</anchorfile>
+      <anchor>a2d4b79f345a9b2f93211f005c0e14121</anchor>
+      <arglist>(detail::span_input_adapter &amp;&amp;i, SAX *sax, input_format_t format=input_format_t::json, const bool strict=true)</arglist>
     </member>
     <member kind="function" static="yes">
       <type>static std::vector&lt; uint8_t &gt;</type>
@@ -1461,9 +1461,16 @@
     <member kind="function" static="yes">
       <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
       <name>from_cbor</name>
-      <anchorfile>classnlohmann_1_1basic__json_a35a70ee14be3fab32b0976df41569fe8.html</anchorfile>
-      <anchor>a35a70ee14be3fab32b0976df41569fe8</anchor>
-      <arglist>(A1 &amp;&amp;a1, A2 &amp;&amp;a2, const bool strict=true, const bool allow_exceptions=true)</arglist>
+      <anchorfile>classnlohmann_1_1basic__json_a54d153de8c9bf520b70ba96df7c85f63.html</anchorfile>
+      <anchor>a54d153de8c9bf520b70ba96df7c85f63</anchor>
+      <arglist>(IteratorType first, IteratorType last, const bool strict=true, const bool allow_exceptions=true)</arglist>
+    </member>
+    <member kind="function" static="yes">
+      <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
+      <name>from_cbor</name>
+      <anchorfile>classnlohmann_1_1basic__json_a088b45a645c89de106cda21ccb49cc50.html</anchorfile>
+      <anchor>a088b45a645c89de106cda21ccb49cc50</anchor>
+      <arglist>(const T *ptr, std::size_t len, const bool strict=true, const bool allow_exceptions=true)</arglist>
     </member>
     <member kind="function" static="yes">
       <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
@@ -1482,9 +1489,16 @@
     <member kind="function" static="yes">
       <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
       <name>from_msgpack</name>
-      <anchorfile>classnlohmann_1_1basic__json_a18f5f50cbdebc6a35fa1fe25a5107aa9.html</anchorfile>
-      <anchor>a18f5f50cbdebc6a35fa1fe25a5107aa9</anchor>
-      <arglist>(A1 &amp;&amp;a1, A2 &amp;&amp;a2, const bool strict=true, const bool allow_exceptions=true)</arglist>
+      <anchorfile>classnlohmann_1_1basic__json_abe8f728998a65ebe269931a80fd403d8.html</anchorfile>
+      <anchor>abe8f728998a65ebe269931a80fd403d8</anchor>
+      <arglist>(IteratorType first, IteratorType last, const bool strict=true, const bool allow_exceptions=true)</arglist>
+    </member>
+    <member kind="function" static="yes">
+      <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
+      <name>from_msgpack</name>
+      <anchorfile>classnlohmann_1_1basic__json_a293d6186055b8c5ac1427a6ad67cb921.html</anchorfile>
+      <anchor>a293d6186055b8c5ac1427a6ad67cb921</anchor>
+      <arglist>(const T *ptr, std::size_t len, const bool strict=true, const bool allow_exceptions=true)</arglist>
     </member>
     <member kind="function" static="yes">
       <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
@@ -1503,15 +1517,22 @@
     <member kind="function" static="yes">
       <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
       <name>from_ubjson</name>
-      <anchorfile>classnlohmann_1_1basic__json_a7512b977f291271615ef6ad1e5baeee6.html</anchorfile>
-      <anchor>a7512b977f291271615ef6ad1e5baeee6</anchor>
-      <arglist>(A1 &amp;&amp;a1, A2 &amp;&amp;a2, const bool strict=true, const bool allow_exceptions=true)</arglist>
+      <anchorfile>classnlohmann_1_1basic__json_aa5e9d5e42fda65ba1f1cb43e383dacf2.html</anchorfile>
+      <anchor>aa5e9d5e42fda65ba1f1cb43e383dacf2</anchor>
+      <arglist>(IteratorType first, IteratorType last, const bool strict=true, const bool allow_exceptions=true)</arglist>
     </member>
     <member kind="function" static="yes">
-      <type>static basic_json</type>
+      <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
       <name>from_ubjson</name>
-      <anchorfile>classnlohmann_1_1basic__json_af725a0900f2b0625fb234f90b2ae13e4.html</anchorfile>
-      <anchor>af725a0900f2b0625fb234f90b2ae13e4</anchor>
+      <anchorfile>classnlohmann_1_1basic__json_a51b0ac5e00bc9b5086d8bce75ad9a7f6.html</anchorfile>
+      <anchor>a51b0ac5e00bc9b5086d8bce75ad9a7f6</anchor>
+      <arglist>(const T *ptr, std::size_t len, const bool strict=true, const bool allow_exceptions=true)</arglist>
+    </member>
+    <member kind="function" static="yes">
+      <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
+      <name>from_ubjson</name>
+      <anchorfile>classnlohmann_1_1basic__json_a7be13fb30f661f273eacd6b79f27ca7c.html</anchorfile>
+      <anchor>a7be13fb30f661f273eacd6b79f27ca7c</anchor>
       <arglist>(detail::span_input_adapter &amp;&amp;i, const bool strict=true, const bool allow_exceptions=true)</arglist>
     </member>
     <member kind="function" static="yes">
@@ -1524,9 +1545,16 @@
     <member kind="function" static="yes">
       <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
       <name>from_bson</name>
-      <anchorfile>classnlohmann_1_1basic__json_ac63e3b10cee79ec1581bd83a75927dae.html</anchorfile>
-      <anchor>ac63e3b10cee79ec1581bd83a75927dae</anchor>
-      <arglist>(A1 &amp;&amp;a1, A2 &amp;&amp;a2, const bool strict=true, const bool allow_exceptions=true)</arglist>
+      <anchorfile>classnlohmann_1_1basic__json_ae370fb456fb268caab90714bfc724f31.html</anchorfile>
+      <anchor>ae370fb456fb268caab90714bfc724f31</anchor>
+      <arglist>(IteratorType first, IteratorType last, const bool strict=true, const bool allow_exceptions=true)</arglist>
+    </member>
+    <member kind="function" static="yes">
+      <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>
+      <name>from_bson</name>
+      <anchorfile>classnlohmann_1_1basic__json_a6357719d94fd44c069bece3fb7b002ea.html</anchorfile>
+      <anchor>a6357719d94fd44c069bece3fb7b002ea</anchor>
+      <arglist>(const T *ptr, std::size_t len, const bool strict=true, const bool allow_exceptions=true)</arglist>
     </member>
     <member kind="function" static="yes">
       <type>static JSON_HEDLEY_WARN_UNUSED_RESULT basic_json</type>

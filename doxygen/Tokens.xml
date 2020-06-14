@@ -2254,6 +2254,18 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
+    <Path>classnlohmann_1_1basic__json_a7c2810819d5bb201063c17fba074a911.html</Path>
+    <Anchor>a7c2810819d5bb201063c17fba074a911</Anchor>
+    <Abstract>deserialize from a pair of character iterators</Abstract>
+    <DeclaredIn>json.hpp</DeclaredIn>
+  </Token>
+  <Token>
+    <TokenIdentifier>
+      <Name>parse</Name>
+      <APILanguage>cpp</APILanguage>
+      <Type>clm</Type>
+      <Scope>nlohmann::basic_json</Scope>
+    </TokenIdentifier>
     <Path>classnlohmann_1_1basic__json_a08a4409d59797b1a6ce834b11aad7a98.html</Path>
     <Anchor>a08a4409d59797b1a6ce834b11aad7a98</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
@@ -2267,6 +2279,7 @@
     </TokenIdentifier>
     <Path>classnlohmann_1_1basic__json_af5e744eca7450c62aad896fc9c3424a2.html</Path>
     <Anchor>af5e744eca7450c62aad896fc9c3424a2</Anchor>
+    <Abstract>check if the input is valid JSON</Abstract>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
@@ -2276,8 +2289,19 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_a55a751d04742e802e56d2d1fb1fa8894.html</Path>
-    <Anchor>a55a751d04742e802e56d2d1fb1fa8894</Anchor>
+    <Path>classnlohmann_1_1basic__json_a7dc0977ab6744b3a73736dd406660bc8.html</Path>
+    <Anchor>a7dc0977ab6744b3a73736dd406660bc8</Anchor>
+    <DeclaredIn>json.hpp</DeclaredIn>
+  </Token>
+  <Token>
+    <TokenIdentifier>
+      <Name>accept</Name>
+      <APILanguage>cpp</APILanguage>
+      <Type>clm</Type>
+      <Scope>nlohmann::basic_json</Scope>
+    </TokenIdentifier>
+    <Path>classnlohmann_1_1basic__json_acc4104c4106fa50078c9986365e29386.html</Path>
+    <Anchor>acc4104c4106fa50078c9986365e29386</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
@@ -2299,31 +2323,8 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_a2d4b79f345a9b2f93211f005c0e14121.html</Path>
-    <Anchor>a2d4b79f345a9b2f93211f005c0e14121</Anchor>
-    <DeclaredIn>json.hpp</DeclaredIn>
-  </Token>
-  <Token>
-    <TokenIdentifier>
-      <Name>parse</Name>
-      <APILanguage>cpp</APILanguage>
-      <Type>clm</Type>
-      <Scope>nlohmann::basic_json</Scope>
-    </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_a0837217bb8415b37a13233da239c0005.html</Path>
-    <Anchor>a0837217bb8415b37a13233da239c0005</Anchor>
-    <Abstract>deserialize from an iterator range with contiguous storage</Abstract>
-    <DeclaredIn>json.hpp</DeclaredIn>
-  </Token>
-  <Token>
-    <TokenIdentifier>
-      <Name>accept</Name>
-      <APILanguage>cpp</APILanguage>
-      <Type>clm</Type>
-      <Scope>nlohmann::basic_json</Scope>
-    </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_a1eeba1043ffc896a27a242b7de2a58d5.html</Path>
-    <Anchor>a1eeba1043ffc896a27a242b7de2a58d5</Anchor>
+    <Path>classnlohmann_1_1basic__json_a56dca2a3714d0e00588a69b2f396dad6.html</Path>
+    <Anchor>a56dca2a3714d0e00588a69b2f396dad6</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
@@ -2333,8 +2334,8 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_a100dd0ecc7dfe3a8c2e1726c73ff3b63.html</Path>
-    <Anchor>a100dd0ecc7dfe3a8c2e1726c73ff3b63</Anchor>
+    <Path>classnlohmann_1_1basic__json_a2d4b79f345a9b2f93211f005c0e14121.html</Path>
+    <Anchor>a2d4b79f345a9b2f93211f005c0e14121</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
@@ -2494,8 +2495,19 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_a35a70ee14be3fab32b0976df41569fe8.html</Path>
-    <Anchor>a35a70ee14be3fab32b0976df41569fe8</Anchor>
+    <Path>classnlohmann_1_1basic__json_a54d153de8c9bf520b70ba96df7c85f63.html</Path>
+    <Anchor>a54d153de8c9bf520b70ba96df7c85f63</Anchor>
+    <DeclaredIn>json.hpp</DeclaredIn>
+  </Token>
+  <Token>
+    <TokenIdentifier>
+      <Name>from_cbor</Name>
+      <APILanguage>cpp</APILanguage>
+      <Type>clm</Type>
+      <Scope>nlohmann::basic_json</Scope>
+    </TokenIdentifier>
+    <Path>classnlohmann_1_1basic__json_a088b45a645c89de106cda21ccb49cc50.html</Path>
+    <Anchor>a088b45a645c89de106cda21ccb49cc50</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
@@ -2528,8 +2540,19 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_a18f5f50cbdebc6a35fa1fe25a5107aa9.html</Path>
-    <Anchor>a18f5f50cbdebc6a35fa1fe25a5107aa9</Anchor>
+    <Path>classnlohmann_1_1basic__json_abe8f728998a65ebe269931a80fd403d8.html</Path>
+    <Anchor>abe8f728998a65ebe269931a80fd403d8</Anchor>
+    <DeclaredIn>json.hpp</DeclaredIn>
+  </Token>
+  <Token>
+    <TokenIdentifier>
+      <Name>from_msgpack</Name>
+      <APILanguage>cpp</APILanguage>
+      <Type>clm</Type>
+      <Scope>nlohmann::basic_json</Scope>
+    </TokenIdentifier>
+    <Path>classnlohmann_1_1basic__json_a293d6186055b8c5ac1427a6ad67cb921.html</Path>
+    <Anchor>a293d6186055b8c5ac1427a6ad67cb921</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
@@ -2562,8 +2585,8 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_a7512b977f291271615ef6ad1e5baeee6.html</Path>
-    <Anchor>a7512b977f291271615ef6ad1e5baeee6</Anchor>
+    <Path>classnlohmann_1_1basic__json_aa5e9d5e42fda65ba1f1cb43e383dacf2.html</Path>
+    <Anchor>aa5e9d5e42fda65ba1f1cb43e383dacf2</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
@@ -2573,8 +2596,19 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_af725a0900f2b0625fb234f90b2ae13e4.html</Path>
-    <Anchor>af725a0900f2b0625fb234f90b2ae13e4</Anchor>
+    <Path>classnlohmann_1_1basic__json_a51b0ac5e00bc9b5086d8bce75ad9a7f6.html</Path>
+    <Anchor>a51b0ac5e00bc9b5086d8bce75ad9a7f6</Anchor>
+    <DeclaredIn>json.hpp</DeclaredIn>
+  </Token>
+  <Token>
+    <TokenIdentifier>
+      <Name>from_ubjson</Name>
+      <APILanguage>cpp</APILanguage>
+      <Type>clm</Type>
+      <Scope>nlohmann::basic_json</Scope>
+    </TokenIdentifier>
+    <Path>classnlohmann_1_1basic__json_a7be13fb30f661f273eacd6b79f27ca7c.html</Path>
+    <Anchor>a7be13fb30f661f273eacd6b79f27ca7c</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
@@ -2596,8 +2630,19 @@
       <Type>clm</Type>
       <Scope>nlohmann::basic_json</Scope>
     </TokenIdentifier>
-    <Path>classnlohmann_1_1basic__json_ac63e3b10cee79ec1581bd83a75927dae.html</Path>
-    <Anchor>ac63e3b10cee79ec1581bd83a75927dae</Anchor>
+    <Path>classnlohmann_1_1basic__json_ae370fb456fb268caab90714bfc724f31.html</Path>
+    <Anchor>ae370fb456fb268caab90714bfc724f31</Anchor>
+    <DeclaredIn>json.hpp</DeclaredIn>
+  </Token>
+  <Token>
+    <TokenIdentifier>
+      <Name>from_bson</Name>
+      <APILanguage>cpp</APILanguage>
+      <Type>clm</Type>
+      <Scope>nlohmann::basic_json</Scope>
+    </TokenIdentifier>
+    <Path>classnlohmann_1_1basic__json_a6357719d94fd44c069bece3fb7b002ea.html</Path>
+    <Anchor>a6357719d94fd44c069bece3fb7b002ea</Anchor>
     <DeclaredIn>json.hpp</DeclaredIn>
   </Token>
   <Token>
