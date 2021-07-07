@@ -1,7 +1,7 @@
 /*
     __ _____ _____ _____
  __|  |   __|     |   | |  JSON for Modern C++ (test suite)
-|  |  |__   |  |  | | | |  version 3.8.0
+|  |  |__   |  |  | | | |  version 3.9.1
 |_____|_____|_____|_|___|  https://github.com/nlohmann/json
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
@@ -52,7 +52,7 @@ TEST_CASE("README" * doctest::skip())
 {
     {
         // redirect std::cout for the README file
-        auto old_cout_buffer = std::cout.rdbuf();
+        auto* old_cout_buffer = std::cout.rdbuf();
         std::ostringstream new_stream;
         std::cout.rdbuf(new_stream.rdbuf());
         {
@@ -123,7 +123,7 @@ TEST_CASE("README" * doctest::skip())
 
         {
             // create object from string literal
-            json j = "{ \"happy\": true, \"pi\": 3.141 }"_json;
+            json j = "{ \"happy\": true, \"pi\": 3.141 }"_json; // NOLINT(modernize-raw-string-literal)
 
             // or even nicer with a raw string literal
             auto j2 = R"(
@@ -134,7 +134,7 @@ TEST_CASE("README" * doctest::skip())
         )"_json;
 
             // or explicitly
-            auto j3 = json::parse("{ \"happy\": true, \"pi\": 3.141 }");
+            auto j3 = json::parse(R"({"happy": true, "pi": 3.141})");
 
             // explicit conversion to string
             std::string s = j.dump();    // {\"happy\":true,\"pi\":3.141}
@@ -158,25 +158,25 @@ TEST_CASE("README" * doctest::skip())
             j.push_back(true);
 
             // comparison
-            bool x = (j == "[\"foo\", 1, true]"_json);  // true
+            bool x = (j == R"(["foo", 1, true])"_json);  // true
             CHECK(x == true);
 
             // iterate the array
-            for (json::iterator it = j.begin(); it != j.end(); ++it)
+            for (json::iterator it = j.begin(); it != j.end(); ++it) // NOLINT(modernize-loop-convert)
             {
                 std::cout << *it << '\n';
             }
 
             // range-based for
-            for (auto element : j)
+            for (auto& element : j)
             {
                 std::cout << element << '\n';
             }
 
             // getter/setter
-            const std::string tmp = j[0];
+            const auto tmp = j[0].get<std::string>();
             j[1] = 42;
-            bool foo = j.at(2);
+            bool foo{j.at(2)};
             CHECK(foo == true);
 
             // other stuff
@@ -258,18 +258,18 @@ TEST_CASE("README" * doctest::skip())
             // strings
             std::string s1 = "Hello, world!";
             json js = s1;
-            std::string s2 = js;
+            auto s2 = js.get<std::string>();
 
             // Booleans
             bool b1 = true;
             json jb = b1;
-            bool b2 = jb;
+            bool b2{jb};
             CHECK(b2 == true);
 
             // numbers
             int i = 42;
             json jn = i;
-            double f = jn;
+            double f{jn};
             CHECK(f == 42);
 
             // etc.
