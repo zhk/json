@@ -1,23 +1,37 @@
+//     __ _____ _____ _____
+//  __|  |   __|     |   | |  JSON for Modern C++
+// |  |  |__   |  |  | | | |  version 3.12.0
+// |_____|_____|_____|_|___|  https://github.com/nlohmann/json
+//
+// SPDX-FileCopyrightText: 2013-2026 Niels Lohmann <https://nlohmann.me>
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 #include <array> // array
-#include <clocale> // localeconv
 #include <cstddef> // size_t
+#include <cstdint> // uint32_t
 #include <cstdio> // snprintf
-#include <cstdlib> // strtof, strtod, strtold, strtoll, strtoull
+#include <cstring> // memcmp
 #include <initializer_list> // initializer_list
+#include <limits> // numeric_limits
 #include <string> // char_traits, string
 #include <utility> // move
 #include <vector> // vector
 
+#include <nlohmann/detail/bit_ops.hpp>
 #include <nlohmann/detail/input/input_adapters.hpp>
+#include <nlohmann/detail/input/number_parse.hpp>
 #include <nlohmann/detail/input/position_t.hpp>
+#include <nlohmann/detail/input/string_scan.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
+#include <nlohmann/detail/meta/type_traits.hpp>
+#include <nlohmann/detail/string_utils.hpp>
 
-namespace nlohmann
-{
+NLOHMANN_JSON_NAMESPACE_BEGIN
 namespace detail
 {
+
 ///////////
 // lexer //
 ///////////
@@ -94,12 +108,114 @@ class lexer_base
         }
     }
 };
+
+// Detect whether an input adapter can reconstruct already-consumed input on
+// demand (see iterator_input_adapter::supports_seek). Adapters that do not
+// expose the flag - e.g. file, stream, wide-string, and user-defined adapters -
+// are treated as non-seekable streaming input, for which the lexer keeps
+// copying every scanned character eagerly. The value is read via tag dispatch
+// on is_detected so the flag is only referenced for adapters that provide it.
+template<typename InputAdapterType>
+using detect_supports_seek = decltype(InputAdapterType::supports_seek);
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_supports_seek(std::true_type /*detected*/)
+{
+    return InputAdapterType::supports_seek;
+}
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_supports_seek(std::false_type /*detected*/)
+{
+    return false;
+}
+
+// Detect whether an input adapter reads with one character of lookahead that
+// can be left in the input (see input_stream_adapter::supports_lookahead,
+// which is only defined with JSON_PRECISE_STREAM_POSITION), detected like
+// supports_seek above.
+template<typename InputAdapterType>
+using detect_supports_lookahead = decltype(InputAdapterType::supports_lookahead);
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_supports_lookahead(std::true_type /*detected*/)
+{
+    return InputAdapterType::supports_lookahead;
+}
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_supports_lookahead(std::false_type /*detected*/)
+{
+    return false;
+}
+
+// Detect whether an input adapter exposes a contiguous byte block that the
+// lexer can scan directly (see iterator_input_adapter::supports_bulk_scan).
+// Adapters without the flag - file, stream, wide-string, user-defined - fall
+// back to the character-at-a-time string scanner.
+template<typename InputAdapterType>
+using detect_supports_bulk_scan = decltype(InputAdapterType::supports_bulk_scan);
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_supports_bulk_scan(std::true_type /*detected*/)
+{
+    return InputAdapterType::supports_bulk_scan;
+}
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_supports_bulk_scan(std::false_type /*detected*/)
+{
+    return false;
+}
+
+// Detect whether an input adapter keeps the current token itself and can
+// hand it out on demand (see input_stream_adapter::supports_token_tracking),
+// so the lexer need not copy every scanned character into token_string.
+template<typename InputAdapterType>
+using detect_supports_token_tracking = decltype(InputAdapterType::supports_token_tracking);
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_supports_token_tracking(std::true_type /*detected*/)
+{
+    return InputAdapterType::supports_token_tracking;
+}
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_supports_token_tracking(std::false_type /*detected*/)
+{
+    return false;
+}
+
+// Detect whether the contiguous block of a bulk-scan adapter is only a window
+// into the input (see input_stream_adapter::bulk_window): its end is not the
+// end of the input, so a token that touches it must be finished character by
+// character.
+template<typename InputAdapterType>
+using detect_bulk_window = decltype(InputAdapterType::bulk_window);
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_bulk_window(std::true_type /*detected*/)
+{
+    return InputAdapterType::bulk_window;
+}
+
+template<typename InputAdapterType>
+constexpr bool input_adapter_bulk_window(std::false_type /*detected*/)
+{
+    return false;
+}
+
 /*!
 @brief lexical analysis
 
 This class organizes the lexical analysis during JSON deserialization.
+
+DiscardValues: the caller only needs the token types and never looks at the values of number and string tokens (only
+accept(), which parses through json_sax_acceptor). A template parameter rather than a member, so that the lexer of
+parse() is compiled without the paths of accept(): with both string scans in one scan(), parse() was up to 2 % slower
+on Apple M1.
 */
-template<typename BasicJsonType, typename InputAdapterType>
+template<typename BasicJsonType, typename InputAdapterType, bool DiscardValues = false>
 class lexer : public lexer_base<BasicJsonType>
 {
     using number_integer_t = typename BasicJsonType::number_integer_t;
@@ -107,43 +223,118 @@ class lexer : public lexer_base<BasicJsonType>
     using number_float_t = typename BasicJsonType::number_float_t;
     using string_t = typename BasicJsonType::string_t;
     using char_type = typename InputAdapterType::char_type;
-    using char_int_type = typename std::char_traits<char_type>::int_type;
+    using char_int_type = typename char_traits<char_type>::int_type;
+
+    /// whether the last read token can be reconstructed from the input adapter
+    /// on demand (in error paths) instead of being copied on every scanned
+    /// character; see input_adapter_supports_seek
+    static constexpr bool seekable =
+        input_adapter_supports_seek<InputAdapterType>(is_detected<detect_supports_seek, InputAdapterType> {});
+
+    /// whether the adapter keeps the token itself (mark_token_start() /
+    /// copy_token()); see input_adapter_supports_token_tracking
+    static constexpr bool adapter_token =
+        !seekable && input_adapter_supports_token_tracking<InputAdapterType>(is_detected<detect_supports_token_tracking, InputAdapterType> {});
+
+    /// whether the last read token is obtained from the input adapter on
+    /// demand (in error paths) instead of being copied on every scanned
+    /// character: seekable adapters reconstruct it from the consumed input,
+    /// token-tracking adapters keep it themselves
+    static constexpr bool lazy_token_string = seekable || adapter_token;
+
+    /// whether the read position is derived from the input adapter on demand
+    /// instead of being counted on every scanned character. Seekable adapters
+    /// know how much input they consumed and can revisit it, so
+    /// chars_read_total is the adapter's read count (minus a pending unget),
+    /// and line and column are recomputed from the consumed input only when
+    /// get_position() is called (errors). Counting per character kept two
+    /// increments and a newline check in the hot path of every get().
+    static constexpr bool lazy_position = seekable;
+
+    /// whether a simulated unget can be passed on to the input adapter, which
+    /// then leaves the character in the input; see
+    /// input_adapter_supports_lookahead
+    static constexpr bool can_release_lookahead =
+        input_adapter_supports_lookahead<InputAdapterType>(is_detected<detect_supports_lookahead, InputAdapterType> {});
+
+    /// whether string scanning may bulk-consume runs of ordinary characters
+    /// directly from a contiguous input buffer (SWAR fast path). Without
+    /// lazy_token_string / lazy_position, the bulk paths copy the consumed
+    /// characters into token_string and advance the position counters
+    /// themselves (see bulk_consume).
+    static constexpr bool bulk_scan =
+        input_adapter_supports_bulk_scan<InputAdapterType>(is_detected<detect_supports_bulk_scan, InputAdapterType> {});
+
+    /// whether the contiguous block is only a window into the input, so that
+    /// its end does not end a token; see input_adapter_bulk_window
+    static constexpr bool bulk_window =
+        input_adapter_bulk_window<InputAdapterType>(is_detected<detect_bulk_window, InputAdapterType> {});
 
   public:
     using token_type = typename lexer_base<BasicJsonType>::token_type;
 
-    explicit lexer(InputAdapterType&& adapter)
-        : ia(std::move(adapter)), decimal_point_char(static_cast<char_int_type>(get_decimal_point())) {}
+    explicit lexer(InputAdapterType&& adapter, bool ignore_comments_ = false) noexcept
+        : ia(std::move(adapter))
+        , ignore_comments(ignore_comments_)
+    {
+        // the token string of an error before the first token is everything
+        // read so far
+        begin_token(std::integral_constant<bool, adapter_token> {});
+    }
 
-    // delete because of pointer members
+    // deleted because of pointer members
     lexer(const lexer&) = delete;
-    lexer(lexer&&) = default;
+    lexer(lexer&&) = default; // NOLINT(hicpp-noexcept-move,performance-noexcept-move-constructor)
     lexer& operator=(lexer&) = delete;
-    lexer& operator=(lexer&&) = default;
+    lexer& operator=(lexer&&) = default; // NOLINT(hicpp-noexcept-move,performance-noexcept-move-constructor)
     ~lexer() = default;
 
   private:
     /////////////////////
-    // locales
-    /////////////////////
-
-    /// return the locale-dependent decimal point
-    JSON_HEDLEY_PURE
-    static char get_decimal_point() noexcept
-    {
-        const auto loc = localeconv();
-        assert(loc != nullptr);
-        return (loc->decimal_point == nullptr) ? '.' : *(loc->decimal_point);
-    }
-
-    /////////////////////
     // scan functions
     /////////////////////
 
-    /*!
-    @brief get codepoint from 4 hex characters following `\u`
+    /// contiguous input: try to decode the 4 hex digits following `\\u`
+    /// directly from the input buffer via hex_codepoint(), instead of 4 calls
+    /// to get(). On success, advances the adapter exactly as those 4 get()
+    /// calls would (including the position and token bookkeeping of a
+    /// streaming adapter, see bulk_consume) and leaves @a current holding the last of
+    /// the 4 digits, just as the last such get() would; the codepoint is
+    /// written to @a out. Makes no state change and returns false for fewer
+    /// than 4 remaining bytes or any of the 4 bytes not being a hex digit, so
+    /// the caller falls back unchanged to the per-character loop, which then
+    /// reports the same diagnostic (stopping at the first invalid digit) as
+    /// before this optimization.
+    bool get_codepoint_bulk(std::true_type /*bulk*/, int& out)
+    {
+        // no unget is pending inside a string (see get_after_string_run())
+        JSON_ASSERT(!next_unget);
+        if (ia.bulk_remaining() < 4)
+        {
+            return false;
+        }
+        const char_type* const raw = ia.bulk_data();
+        const int codepoint = hex_codepoint(reinterpret_cast<const unsigned char*>(raw));
+        if (codepoint < 0)
+        {
+            return false;
+        }
+        bulk_consume(reinterpret_cast<const char*>(raw), 4);
+        current = char_traits<char_type>::to_int_type(raw[3]);
+        out = codepoint;
+        return true;
+    }
 
-    For input "\u c1 c2 c3 c4" the codepoint is:
+    /// streaming input: no bulk fast path
+    bool get_codepoint_bulk(std::false_type /*bulk*/, int& /*out*/) const noexcept
+    {
+        return false;
+    }
+
+    /*!
+    @brief get codepoint from 4 hex characters following `\\u`
+
+    For input "\\u c1 c2 c3 c4" the codepoint is:
       (c1 * 0x1000) + (c2 * 0x0100) + (c3 * 0x0010) + c4
     = (c1 << 12) + (c2 << 8) + (c3 << 4) + (c4 << 0)
 
@@ -158,7 +349,15 @@ class lexer : public lexer_base<BasicJsonType>
     int get_codepoint()
     {
         // this function only makes sense after reading `\u`
-        assert(current == 'u');
+        JSON_ASSERT(current == 'u');
+
+        // contiguous input: decode all 4 hex digits directly from the buffer
+        int fast_codepoint = 0;
+        if (get_codepoint_bulk(std::integral_constant<bool, bulk_scan> {}, fast_codepoint))
+        {
+            return fast_codepoint;
+        }
+
         int codepoint = 0;
 
         const auto factors = { 12u, 8u, 4u, 0u };
@@ -166,15 +365,15 @@ class lexer : public lexer_base<BasicJsonType>
         {
             get();
 
-            if (current >= '0' and current <= '9')
+            if (current >= '0' && current <= '9')
             {
                 codepoint += static_cast<int>((static_cast<unsigned int>(current) - 0x30u) << factor);
             }
-            else if (current >= 'A' and current <= 'F')
+            else if (current >= 'A' && current <= 'F')
             {
                 codepoint += static_cast<int>((static_cast<unsigned int>(current) - 0x37u) << factor);
             }
-            else if (current >= 'a' and current <= 'f')
+            else if (current >= 'a' && current <= 'f')
             {
                 codepoint += static_cast<int>((static_cast<unsigned int>(current) - 0x57u) << factor);
             }
@@ -184,7 +383,7 @@ class lexer : public lexer_base<BasicJsonType>
             }
         }
 
-        assert(0x0000 <= codepoint and codepoint <= 0xFFFF);
+        JSON_ASSERT(0x0000 <= codepoint && codepoint <= 0xFFFF);
         return codepoint;
     }
 
@@ -195,6 +394,8 @@ class lexer : public lexer_base<BasicJsonType>
     checks if it is inside the range. If a violation was detected, set up an
     error message and return false. Otherwise, return true.
 
+    @param[in] keep    whether the bytes are added to token_buffer (false for
+                       accept(), see scan())
     @param[in] ranges  list of integers; interpreted as list of pairs of
                        inclusive lower and upper bound, respectively
 
@@ -203,17 +404,18 @@ class lexer : public lexer_base<BasicJsonType>
 
     @return true if and only if no range violation was detected
     */
-    bool next_byte_in_range(std::initializer_list<char_int_type> ranges)
+    template<bool Keep>
+    bool next_byte_in_range(std::integral_constant<bool, Keep> keep, std::initializer_list<char_int_type> ranges)
     {
-        assert(ranges.size() == 2 or ranges.size() == 4 or ranges.size() == 6);
-        add(current);
+        JSON_ASSERT(ranges.size() == 2 || ranges.size() == 4 || ranges.size() == 6);
+        add_string_char(keep, current);
 
         for (auto range = ranges.begin(); range != ranges.end(); ++range)
         {
             get();
-            if (JSON_HEDLEY_LIKELY(*range <= current and current <= *(++range)))
+            if (JSON_HEDLEY_LIKELY(*range <= current && current <= *(++range))) // NOLINT(bugprone-inc-dec-in-conditions)
             {
-                add(current);
+                add_string_char(keep, current);
             }
             else
             {
@@ -225,14 +427,95 @@ class lexer : public lexer_base<BasicJsonType>
         return true;
     }
 
+    /// contiguous input: bulk-append the run of ordinary characters and complete
+    /// well-formed UTF-8 sequences starting at the current read position (only
+    /// skip it if @a keep is false), then
+    /// read the first byte that needs individual handling (the closing quote, an
+    /// escape, a control character, or an ill-formed UTF-8 byte) like get().
+    /// That byte is taken from the buffer that was just scanned. Through get(),
+    /// Apple Clang merged this read with the other get() calls of the scan
+    /// function, which load the read position again right after it was stored
+    /// (3% of json::accept() on jeopardy.json on Apple M1).
+    template<bool Keep>
+    char_int_type get_after_string_run(std::true_type /*bulk*/, std::integral_constant<bool, Keep> keep)
+    {
+        // scan_string() is entered from scan_after_whitespace(), whose current
+        // was read by skip_whitespace() (its first get() clears a pending
+        // unget), and nothing in scan_string() calls unget()
+        JSON_ASSERT(!next_unget);
+        const std::size_t remaining = ia.bulk_remaining();
+        if (remaining == 0)
+        {
+            return get();
+        }
+        const auto* const raw = ia.bulk_data();
+        const auto* const data = reinterpret_cast<const unsigned char*>(raw);
+
+        const std::size_t pos = lexer_string_bulk_run(data, remaining);
+        if (pos != 0)
+        {
+            append_string_run(keep, data, pos);
+            bulk_consume(reinterpret_cast<const char*>(data), pos);
+        }
+        if (pos == remaining)
+        {
+            return get(); // end of the contiguous input
+        }
+        // what get() does, with the byte at hand
+        advance_position();
+        ia.bulk_skip(1);
+        current = char_traits<char_type>::to_int_type(raw[pos]);
+        return track_after_read();
+    }
+
+    /// consume @a n characters at @a data (the adapter's bulk_data()) and do
+    /// the bookkeeping get() would have done for them; the characters are
+    /// never newlines
+    void bulk_consume(const char* data, std::size_t n)
+    {
+        bulk_track_position(n, std::integral_constant<bool, lazy_position> {});
+        bulk_track_token(data, n, std::integral_constant<bool, lazy_token_string> {});
+        ia.bulk_skip(n);
+    }
+
+    /// seekable adapter: the position is derived from the adapter
+    void bulk_track_position(std::size_t /*n*/, std::true_type /*lazy*/) const noexcept {}
+
+    /// streaming adapter: count the characters
+    void bulk_track_position(std::size_t n, std::false_type /*lazy*/) noexcept
+    {
+        position.chars_read_total += n;
+        position.chars_read_current_line += n;
+    }
+
+    /// the token is obtained from the adapter
+    void bulk_track_token(const char* /*data*/, std::size_t /*n*/, std::true_type /*lazy*/) const noexcept {}
+
+    /// streaming adapter: capture the characters
+    void bulk_track_token(const char* data, std::size_t n, std::false_type /*lazy*/)
+    {
+        token_string.insert(token_string.end(), data, data + n);
+    }
+
+    /// streaming input: no bulk fast path
+    template<bool Keep>
+    char_int_type get_after_string_run(std::false_type /*bulk*/, std::integral_constant<bool, Keep> /*keep*/)
+    {
+        return get();
+    }
+
     /*!
     @brief scan a string literal
 
-    This function scans a string according to Sect. 7 of RFC 7159. While
+    This function scans a string according to Sect. 7 of RFC 8259. While
     scanning, bytes are escaped and copied into buffer token_buffer. Then the
     function returns successfully, token_buffer is *not* null-terminated (as it
     may contain \0 bytes), and token_buffer.size() is the number of bytes in the
     string.
+
+    @param[in] keep  whether the string is copied into token_buffer; if false
+                     (accept(), see scan()), it is only checked, with the same
+                     errors, and token_buffer stays empty
 
     @return token_type::value_string if string could be successfully scanned,
             token_type::parse_error otherwise
@@ -240,21 +523,23 @@ class lexer : public lexer_base<BasicJsonType>
     @note In case of errors, variable error_message contains a textual
           description.
     */
-    token_type scan_string()
+    template<bool Keep>
+    token_type scan_string(std::integral_constant<bool, Keep> keep)
     {
         // reset token_buffer (ignore opening quote)
         reset();
 
         // we entered the function by reading an open quote
-        assert(current == '\"');
+        JSON_ASSERT(current == '\"');
 
         while (true)
         {
-            // get next character
-            switch (get())
+            // bulk-consume ordinary characters from contiguous input, then
+            // get the next character, the one that ends the run
+            switch (get_after_string_run(std::integral_constant<bool, bulk_scan>(), keep))
             {
-                // end of file while parsing string
-                case std::char_traits<char_type>::eof():
+                // end of file while parsing the string
+                case char_traits<char_type>::eof():
                 {
                     error_message = "invalid string: missing closing quote";
                     return token_type::parse_error;
@@ -273,35 +558,35 @@ class lexer : public lexer_base<BasicJsonType>
                     {
                         // quotation mark
                         case '\"':
-                            add('\"');
+                            add_string_char(keep, '\"');
                             break;
                         // reverse solidus
                         case '\\':
-                            add('\\');
+                            add_string_char(keep, '\\');
                             break;
                         // solidus
                         case '/':
-                            add('/');
+                            add_string_char(keep, '/');
                             break;
                         // backspace
                         case 'b':
-                            add('\b');
+                            add_string_char(keep, '\b');
                             break;
                         // form feed
                         case 'f':
-                            add('\f');
+                            add_string_char(keep, '\f');
                             break;
                         // line feed
                         case 'n':
-                            add('\n');
+                            add_string_char(keep, '\n');
                             break;
                         // carriage return
                         case 'r':
-                            add('\r');
+                            add_string_char(keep, '\r');
                             break;
                         // tab
                         case 't':
-                            add('\t');
+                            add_string_char(keep, '\t');
                             break;
 
                         // unicode escapes
@@ -317,10 +602,10 @@ class lexer : public lexer_base<BasicJsonType>
                             }
 
                             // check if code point is a high surrogate
-                            if (0xD800 <= codepoint1 and codepoint1 <= 0xDBFF)
+                            if (0xD800 <= codepoint1 && codepoint1 <= 0xDBFF)
                             {
                                 // expect next \uxxxx entry
-                                if (JSON_HEDLEY_LIKELY(get() == '\\' and get() == 'u'))
+                                if (JSON_HEDLEY_LIKELY(get() == '\\' && get() == 'u'))
                                 {
                                     const int codepoint2 = get_codepoint();
 
@@ -331,7 +616,7 @@ class lexer : public lexer_base<BasicJsonType>
                                     }
 
                                     // check if codepoint2 is a low surrogate
-                                    if (JSON_HEDLEY_LIKELY(0xDC00 <= codepoint2 and codepoint2 <= 0xDFFF))
+                                    if (JSON_HEDLEY_LIKELY(0xDC00 <= codepoint2 && codepoint2 <= 0xDFFF))
                                     {
                                         // overwrite codepoint
                                         codepoint = static_cast<int>(
@@ -339,8 +624,8 @@ class lexer : public lexer_base<BasicJsonType>
                                                         (static_cast<unsigned int>(codepoint1) << 10u)
                                                         // low surrogate occupies the least significant 15 bits
                                                         + static_cast<unsigned int>(codepoint2)
-                                                        // there is still the 0xD800, 0xDC00 and 0x10000 noise
-                                                        // in the result so we have to subtract with:
+                                                        // there is still the 0xD800, 0xDC00, and 0x10000 noise
+                                                        // in the result, so we have to subtract with:
                                                         // (0xD800 << 10) + DC00 - 0x10000 = 0x35FDC00
                                                         - 0x35FDC00u);
                                     }
@@ -358,43 +643,18 @@ class lexer : public lexer_base<BasicJsonType>
                             }
                             else
                             {
-                                if (JSON_HEDLEY_UNLIKELY(0xDC00 <= codepoint1 and codepoint1 <= 0xDFFF))
+                                if (JSON_HEDLEY_UNLIKELY(0xDC00 <= codepoint1 && codepoint1 <= 0xDFFF))
                                 {
                                     error_message = "invalid string: surrogate U+DC00..U+DFFF must follow U+D800..U+DBFF";
                                     return token_type::parse_error;
                                 }
                             }
 
-                            // result of the above calculation yields a proper codepoint
-                            assert(0x00 <= codepoint and codepoint <= 0x10FFFF);
+                            // the result of the above calculation yields a proper codepoint
+                            JSON_ASSERT(0x00 <= codepoint && codepoint <= 0x10FFFF);
 
                             // translate codepoint into bytes
-                            if (codepoint < 0x80)
-                            {
-                                // 1-byte characters: 0xxxxxxx (ASCII)
-                                add(static_cast<char_int_type>(codepoint));
-                            }
-                            else if (codepoint <= 0x7FF)
-                            {
-                                // 2-byte characters: 110xxxxx 10xxxxxx
-                                add(static_cast<char_int_type>(0xC0u | (static_cast<unsigned int>(codepoint) >> 6u)));
-                                add(static_cast<char_int_type>(0x80u | (static_cast<unsigned int>(codepoint) & 0x3Fu)));
-                            }
-                            else if (codepoint <= 0xFFFF)
-                            {
-                                // 3-byte characters: 1110xxxx 10xxxxxx 10xxxxxx
-                                add(static_cast<char_int_type>(0xE0u | (static_cast<unsigned int>(codepoint) >> 12u)));
-                                add(static_cast<char_int_type>(0x80u | ((static_cast<unsigned int>(codepoint) >> 6u) & 0x3Fu)));
-                                add(static_cast<char_int_type>(0x80u | (static_cast<unsigned int>(codepoint) & 0x3Fu)));
-                            }
-                            else
-                            {
-                                // 4-byte characters: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-                                add(static_cast<char_int_type>(0xF0u | (static_cast<unsigned int>(codepoint) >> 18u)));
-                                add(static_cast<char_int_type>(0x80u | ((static_cast<unsigned int>(codepoint) >> 12u) & 0x3Fu)));
-                                add(static_cast<char_int_type>(0x80u | ((static_cast<unsigned int>(codepoint) >> 6u) & 0x3Fu)));
-                                add(static_cast<char_int_type>(0x80u | (static_cast<unsigned int>(codepoint) & 0x3Fu)));
-                            }
+                            add_codepoint(keep, codepoint);
 
                             break;
                         }
@@ -410,194 +670,74 @@ class lexer : public lexer_base<BasicJsonType>
 
                 // invalid control characters
                 case 0x00:
-                {
-                    error_message = "invalid string: control character U+0000 (NUL) must be escaped to \\u0000";
-                    return token_type::parse_error;
-                }
-
                 case 0x01:
-                {
-                    error_message = "invalid string: control character U+0001 (SOH) must be escaped to \\u0001";
-                    return token_type::parse_error;
-                }
-
                 case 0x02:
-                {
-                    error_message = "invalid string: control character U+0002 (STX) must be escaped to \\u0002";
-                    return token_type::parse_error;
-                }
-
                 case 0x03:
-                {
-                    error_message = "invalid string: control character U+0003 (ETX) must be escaped to \\u0003";
-                    return token_type::parse_error;
-                }
-
                 case 0x04:
-                {
-                    error_message = "invalid string: control character U+0004 (EOT) must be escaped to \\u0004";
-                    return token_type::parse_error;
-                }
-
                 case 0x05:
-                {
-                    error_message = "invalid string: control character U+0005 (ENQ) must be escaped to \\u0005";
-                    return token_type::parse_error;
-                }
-
                 case 0x06:
-                {
-                    error_message = "invalid string: control character U+0006 (ACK) must be escaped to \\u0006";
-                    return token_type::parse_error;
-                }
-
                 case 0x07:
-                {
-                    error_message = "invalid string: control character U+0007 (BEL) must be escaped to \\u0007";
-                    return token_type::parse_error;
-                }
-
                 case 0x08:
-                {
-                    error_message = "invalid string: control character U+0008 (BS) must be escaped to \\u0008 or \\b";
-                    return token_type::parse_error;
-                }
-
                 case 0x09:
-                {
-                    error_message = "invalid string: control character U+0009 (HT) must be escaped to \\u0009 or \\t";
-                    return token_type::parse_error;
-                }
-
                 case 0x0A:
-                {
-                    error_message = "invalid string: control character U+000A (LF) must be escaped to \\u000A or \\n";
-                    return token_type::parse_error;
-                }
-
                 case 0x0B:
-                {
-                    error_message = "invalid string: control character U+000B (VT) must be escaped to \\u000B";
-                    return token_type::parse_error;
-                }
-
                 case 0x0C:
-                {
-                    error_message = "invalid string: control character U+000C (FF) must be escaped to \\u000C or \\f";
-                    return token_type::parse_error;
-                }
-
                 case 0x0D:
-                {
-                    error_message = "invalid string: control character U+000D (CR) must be escaped to \\u000D or \\r";
-                    return token_type::parse_error;
-                }
-
                 case 0x0E:
-                {
-                    error_message = "invalid string: control character U+000E (SO) must be escaped to \\u000E";
-                    return token_type::parse_error;
-                }
-
                 case 0x0F:
-                {
-                    error_message = "invalid string: control character U+000F (SI) must be escaped to \\u000F";
-                    return token_type::parse_error;
-                }
-
                 case 0x10:
-                {
-                    error_message = "invalid string: control character U+0010 (DLE) must be escaped to \\u0010";
-                    return token_type::parse_error;
-                }
-
                 case 0x11:
-                {
-                    error_message = "invalid string: control character U+0011 (DC1) must be escaped to \\u0011";
-                    return token_type::parse_error;
-                }
-
                 case 0x12:
-                {
-                    error_message = "invalid string: control character U+0012 (DC2) must be escaped to \\u0012";
-                    return token_type::parse_error;
-                }
-
                 case 0x13:
-                {
-                    error_message = "invalid string: control character U+0013 (DC3) must be escaped to \\u0013";
-                    return token_type::parse_error;
-                }
-
                 case 0x14:
-                {
-                    error_message = "invalid string: control character U+0014 (DC4) must be escaped to \\u0014";
-                    return token_type::parse_error;
-                }
-
                 case 0x15:
-                {
-                    error_message = "invalid string: control character U+0015 (NAK) must be escaped to \\u0015";
-                    return token_type::parse_error;
-                }
-
                 case 0x16:
-                {
-                    error_message = "invalid string: control character U+0016 (SYN) must be escaped to \\u0016";
-                    return token_type::parse_error;
-                }
-
                 case 0x17:
-                {
-                    error_message = "invalid string: control character U+0017 (ETB) must be escaped to \\u0017";
-                    return token_type::parse_error;
-                }
-
                 case 0x18:
-                {
-                    error_message = "invalid string: control character U+0018 (CAN) must be escaped to \\u0018";
-                    return token_type::parse_error;
-                }
-
                 case 0x19:
-                {
-                    error_message = "invalid string: control character U+0019 (EM) must be escaped to \\u0019";
-                    return token_type::parse_error;
-                }
-
                 case 0x1A:
-                {
-                    error_message = "invalid string: control character U+001A (SUB) must be escaped to \\u001A";
-                    return token_type::parse_error;
-                }
-
                 case 0x1B:
-                {
-                    error_message = "invalid string: control character U+001B (ESC) must be escaped to \\u001B";
-                    return token_type::parse_error;
-                }
-
                 case 0x1C:
-                {
-                    error_message = "invalid string: control character U+001C (FS) must be escaped to \\u001C";
-                    return token_type::parse_error;
-                }
-
                 case 0x1D:
-                {
-                    error_message = "invalid string: control character U+001D (GS) must be escaped to \\u001D";
-                    return token_type::parse_error;
-                }
-
                 case 0x1E:
-                {
-                    error_message = "invalid string: control character U+001E (RS) must be escaped to \\u001E";
-                    return token_type::parse_error;
-                }
-
                 case 0x1F:
                 {
-                    error_message = "invalid string: control character U+001F (US) must be escaped to \\u001F";
+                    static const std::array<const char*, 32> control_character_messages = {{
+                            "invalid string: control character U+0000 (NUL) must be escaped to \\u0000",
+                            "invalid string: control character U+0001 (SOH) must be escaped to \\u0001",
+                            "invalid string: control character U+0002 (STX) must be escaped to \\u0002",
+                            "invalid string: control character U+0003 (ETX) must be escaped to \\u0003",
+                            "invalid string: control character U+0004 (EOT) must be escaped to \\u0004",
+                            "invalid string: control character U+0005 (ENQ) must be escaped to \\u0005",
+                            "invalid string: control character U+0006 (ACK) must be escaped to \\u0006",
+                            "invalid string: control character U+0007 (BEL) must be escaped to \\u0007",
+                            "invalid string: control character U+0008 (BS) must be escaped to \\u0008 or \\b",
+                            "invalid string: control character U+0009 (HT) must be escaped to \\u0009 or \\t",
+                            "invalid string: control character U+000A (LF) must be escaped to \\u000A or \\n",
+                            "invalid string: control character U+000B (VT) must be escaped to \\u000B",
+                            "invalid string: control character U+000C (FF) must be escaped to \\u000C or \\f",
+                            "invalid string: control character U+000D (CR) must be escaped to \\u000D or \\r",
+                            "invalid string: control character U+000E (SO) must be escaped to \\u000E",
+                            "invalid string: control character U+000F (SI) must be escaped to \\u000F",
+                            "invalid string: control character U+0010 (DLE) must be escaped to \\u0010",
+                            "invalid string: control character U+0011 (DC1) must be escaped to \\u0011",
+                            "invalid string: control character U+0012 (DC2) must be escaped to \\u0012",
+                            "invalid string: control character U+0013 (DC3) must be escaped to \\u0013",
+                            "invalid string: control character U+0014 (DC4) must be escaped to \\u0014",
+                            "invalid string: control character U+0015 (NAK) must be escaped to \\u0015",
+                            "invalid string: control character U+0016 (SYN) must be escaped to \\u0016",
+                            "invalid string: control character U+0017 (ETB) must be escaped to \\u0017",
+                            "invalid string: control character U+0018 (CAN) must be escaped to \\u0018",
+                            "invalid string: control character U+0019 (EM) must be escaped to \\u0019",
+                            "invalid string: control character U+001A (SUB) must be escaped to \\u001A",
+                            "invalid string: control character U+001B (ESC) must be escaped to \\u001B",
+                            "invalid string: control character U+001C (FS) must be escaped to \\u001C",
+                            "invalid string: control character U+001D (GS) must be escaped to \\u001D",
+                            "invalid string: control character U+001E (RS) must be escaped to \\u001E",
+                            "invalid string: control character U+001F (US) must be escaped to \\u001F"
+                        }
+                    };
+                    error_message = control_character_messages[static_cast<std::size_t>(current)];
                     return token_type::parse_error;
                 }
 
@@ -697,7 +837,7 @@ class lexer : public lexer_base<BasicJsonType>
                 case 0x7E:
                 case 0x7F:
                 {
-                    add(current);
+                    add_string_char(keep, current);
                     break;
                 }
 
@@ -733,7 +873,7 @@ class lexer : public lexer_base<BasicJsonType>
                 case 0xDE:
                 case 0xDF:
                 {
-                    if (JSON_HEDLEY_UNLIKELY(not next_byte_in_range({0x80, 0xBF})))
+                    if (JSON_HEDLEY_UNLIKELY(!next_byte_in_range(keep, {0x80, 0xBF})))
                     {
                         return token_type::parse_error;
                     }
@@ -743,7 +883,7 @@ class lexer : public lexer_base<BasicJsonType>
                 // U+0800..U+0FFF: bytes E0 A0..BF 80..BF
                 case 0xE0:
                 {
-                    if (JSON_HEDLEY_UNLIKELY(not (next_byte_in_range({0xA0, 0xBF, 0x80, 0xBF}))))
+                    if (JSON_HEDLEY_UNLIKELY(!(next_byte_in_range(keep, {0xA0, 0xBF, 0x80, 0xBF}))))
                     {
                         return token_type::parse_error;
                     }
@@ -767,7 +907,7 @@ class lexer : public lexer_base<BasicJsonType>
                 case 0xEE:
                 case 0xEF:
                 {
-                    if (JSON_HEDLEY_UNLIKELY(not (next_byte_in_range({0x80, 0xBF, 0x80, 0xBF}))))
+                    if (JSON_HEDLEY_UNLIKELY(!(next_byte_in_range(keep, {0x80, 0xBF, 0x80, 0xBF}))))
                     {
                         return token_type::parse_error;
                     }
@@ -777,7 +917,7 @@ class lexer : public lexer_base<BasicJsonType>
                 // U+D000..U+D7FF: bytes ED 80..9F 80..BF
                 case 0xED:
                 {
-                    if (JSON_HEDLEY_UNLIKELY(not (next_byte_in_range({0x80, 0x9F, 0x80, 0xBF}))))
+                    if (JSON_HEDLEY_UNLIKELY(!(next_byte_in_range(keep, {0x80, 0x9F, 0x80, 0xBF}))))
                     {
                         return token_type::parse_error;
                     }
@@ -787,7 +927,7 @@ class lexer : public lexer_base<BasicJsonType>
                 // U+10000..U+3FFFF F0 90..BF 80..BF 80..BF
                 case 0xF0:
                 {
-                    if (JSON_HEDLEY_UNLIKELY(not (next_byte_in_range({0x90, 0xBF, 0x80, 0xBF, 0x80, 0xBF}))))
+                    if (JSON_HEDLEY_UNLIKELY(!(next_byte_in_range(keep, {0x90, 0xBF, 0x80, 0xBF, 0x80, 0xBF}))))
                     {
                         return token_type::parse_error;
                     }
@@ -799,7 +939,7 @@ class lexer : public lexer_base<BasicJsonType>
                 case 0xF2:
                 case 0xF3:
                 {
-                    if (JSON_HEDLEY_UNLIKELY(not (next_byte_in_range({0x80, 0xBF, 0x80, 0xBF, 0x80, 0xBF}))))
+                    if (JSON_HEDLEY_UNLIKELY(!(next_byte_in_range(keep, {0x80, 0xBF, 0x80, 0xBF, 0x80, 0xBF}))))
                     {
                         return token_type::parse_error;
                     }
@@ -809,14 +949,14 @@ class lexer : public lexer_base<BasicJsonType>
                 // U+100000..U+10FFFF F4 80..8F 80..BF 80..BF
                 case 0xF4:
                 {
-                    if (JSON_HEDLEY_UNLIKELY(not (next_byte_in_range({0x80, 0x8F, 0x80, 0xBF, 0x80, 0xBF}))))
+                    if (JSON_HEDLEY_UNLIKELY(!(next_byte_in_range(keep, {0x80, 0x8F, 0x80, 0xBF, 0x80, 0xBF}))))
                     {
                         return token_type::parse_error;
                     }
                     break;
                 }
 
-                // remaining bytes (80..C1 and F5..FF) are ill-formed
+                // the remaining bytes (80..C1 and F5..FF) are ill-formed
                 default:
                 {
                     error_message = "invalid string: ill-formed UTF-8 byte";
@@ -826,31 +966,97 @@ class lexer : public lexer_base<BasicJsonType>
         }
     }
 
-    JSON_HEDLEY_NON_NULL(2)
-    static void strtof(float& f, const char* str, char** endptr) noexcept
+    /*!
+     * @brief scan a comment
+     * @return whether comment could be scanned successfully
+     */
+    bool scan_comment()
     {
-        f = std::strtof(str, endptr);
-    }
+        switch (get())
+        {
+            // single-line comments skip input until a newline or EOF is read
+            case '/':
+            {
+                while (true)
+                {
+                    switch (get())
+                    {
+                        case '\n':
+                        case '\r':
+                        case char_traits<char_type>::eof():
+                            return true;
 
-    JSON_HEDLEY_NON_NULL(2)
-    static void strtof(double& f, const char* str, char** endptr) noexcept
-    {
-        f = std::strtod(str, endptr);
-    }
+#if !JSON_STRICT_NUL_HANDLING
+                        case '\0':
+                            // a NUL byte is the end of the input (see scan()),
+                            // so leave it for scan() to see
+                            unget();
+                            return true;
+#endif
 
-    JSON_HEDLEY_NON_NULL(2)
-    static void strtof(long double& f, const char* str, char** endptr) noexcept
-    {
-        f = std::strtold(str, endptr);
+                        default:
+                            break;
+                    }
+                }
+
+                JSON_HEDLEY_UNREACHABLE();
+            }
+
+            // multi-line comments skip input until */ is read
+            case '*':
+            {
+                while (true)
+                {
+                    switch (get())
+                    {
+#if !JSON_STRICT_NUL_HANDLING
+                        case '\0':
+#endif
+                        case char_traits<char_type>::eof():
+                        {
+                            error_message = "invalid comment; missing closing '*/'";
+                            return false;
+                        }
+
+                        case '*':
+                        {
+                            switch (get())
+                            {
+                                case '/':
+                                    return true;
+
+                                default:
+                                {
+                                    unget();
+                                    continue;
+                                }
+                            }
+                        }
+
+                        default:
+                            continue;
+                    }
+                }
+
+                JSON_HEDLEY_UNREACHABLE();
+            }
+
+            // unexpected character after reading '/'
+            default:
+            {
+                error_message = "invalid comment; expecting '/' or '*' after '/'";
+                return false;
+            }
+        }
     }
 
     /*!
     @brief scan a number literal
 
-    This function scans a string according to Sect. 6 of RFC 7159.
+    This function scans a string according to Sect. 6 of RFC 8259.
 
     The function is realized with a deterministic finite state machine derived
-    from the grammar described in RFC 7159. Starting in state "init", the
+    from the grammar described in RFC 8259. Starting in state "init", the
     input is read and used to determined the next state. Only state "done"
     accepts the number. State "error" is a trap state to model errors. In the
     table below, "anything" means any character but the ones listed before.
@@ -880,18 +1086,27 @@ class lexer : public lexer_base<BasicJsonType>
             token_type::value_float if number could be successfully scanned,
             token_type::parse_error otherwise
 
-    @note The scanner is independent of the current locale. Internally, the
-          locale's decimal point is used instead of `.` to work with the
-          locale-dependent converters.
+    @note The scanner is independent of the current locale: token_buffer
+          always holds `.`. The conversion of float and double does not use
+          the locale either. Only the std::strtold fallback of
+          convert_number() for long double formats other than binary64
+          depends on it, and it looks up the decimal point right before
+          converting (see detail::convert_float_locale_aware()).
     */
-    token_type scan_number()  // lgtm [cpp/use-of-goto]
+    token_type scan_number()  // lgtm [cpp/use-of-goto] `goto` is used in this function to implement the number-parsing state machine described above. By design, any finite input will eventually reach the "done" state or return token_type::parse_error. In each intermediate state, 1 byte of the input is appended to the token_buffer vector, and only the already initialized variables token_buffer, number_type, and error_message are manipulated.
     {
         // reset token_buffer to store the number's bytes
         reset();
 
         // the type of the parsed number; initially set to unsigned; will be
-        // changed if minus sign, decimal point or exponent is read
+        // changed if minus sign, decimal point, or exponent is read
         token_type number_type = token_type::value_unsigned;
+
+        // offset just past the last mantissa byte in token_buffer (i.e. the
+        // index of 'e'/'E', or the whole token when there is no exponent).
+        // convert_number() uses it to split the token; npos means
+        // "not seen an exponent yet" and is resolved at scan_number_done
+        std::size_t mantissa_end = std::string::npos;
 
         // state (init): we just found out we need to scan a number
         switch (current)
@@ -924,7 +1139,7 @@ class lexer : public lexer_base<BasicJsonType>
 
             // all other characters are rejected outside scan_number()
             default:            // LCOV_EXCL_LINE
-                assert(false);  // LCOV_EXCL_LINE
+                JSON_ASSERT(false); // NOLINT(cert-dcl03-c,hicpp-static-assert,misc-static-assert) LCOV_EXCL_LINE
         }
 
 scan_number_minus:
@@ -965,7 +1180,8 @@ scan_number_zero:
         {
             case '.':
             {
-                add(decimal_point_char);
+                add(current);
+                decimal_point_position = token_buffer.size() - 1;
                 goto scan_number_decimal1;
             }
 
@@ -1001,7 +1217,8 @@ scan_number_any1:
 
             case '.':
             {
-                add(decimal_point_char);
+                add(current);
+                decimal_point_position = token_buffer.size() - 1;
                 goto scan_number_decimal1;
             }
 
@@ -1076,6 +1293,9 @@ scan_number_decimal2:
 scan_number_exponent:
         // we just parsed an exponent
         number_type = token_type::value_float;
+        // this label is reached only right after the 'e'/'E' was appended (from
+        // the zero, any1, and decimal2 states), so the mantissa ends before it
+        mantissa_end = token_buffer.size() - 1;
         switch (get())
         {
             case '+':
@@ -1162,72 +1382,423 @@ scan_number_done:
         // we are done scanning a number)
         unget();
 
-        char* endptr = nullptr;
-        errno = 0;
+        // no exponent was scanned: the mantissa spans the whole token
+        if (mantissa_end == std::string::npos)
+        {
+            mantissa_end = token_buffer.size();
+        }
 
-        // try to parse integers first and fall back to floats
+        return convert_number(number_type, mantissa_end);
+    }
+
+    /*!
+    @brief convert an already-validated integer token to its value
+
+    The digit sequence in [first, last) has been validated by the caller, so a
+    dedicated parser can avoid the locale/errno overhead of std::strtoull.
+
+    @return the token type on success; token_type::uninitialized if @a
+            number_type is not an integer type or the value does not fit, in
+            which case the caller falls back to the floating-point conversion
+            (matching the previous std::strtoull/std::strtoll behavior)
+    */
+    token_type convert_integer(token_type number_type, const char* first, const char* last)
+    {
         if (number_type == token_type::value_unsigned)
         {
-            const auto x = std::strtoull(token_buffer.data(), &endptr, 10);
-
-            // we checked the number format before
-            assert(endptr == token_buffer.data() + token_buffer.size());
-
-            if (errno == 0)
+            if (parse_integer_unsigned(first, last, value_unsigned))
             {
-                value_unsigned = static_cast<number_unsigned_t>(x);
-                if (value_unsigned == x)
-                {
-                    return token_type::value_unsigned;
-                }
+                return token_type::value_unsigned;
             }
         }
-        else if (number_type == token_type::value_integer)
+        else // value_integer (the callers handle value_float themselves)
         {
-            const auto x = std::strtoll(token_buffer.data(), &endptr, 10);
-
-            // we checked the number format before
-            assert(endptr == token_buffer.data() + token_buffer.size());
-
-            if (errno == 0)
+            if (parse_integer_signed(first, last, value_integer))
             {
-                value_integer = static_cast<number_integer_t>(x);
-                if (value_integer == x)
-                {
-                    return token_type::value_integer;
-                }
+                return token_type::value_integer;
+            }
+        }
+
+        return token_type::uninitialized;
+    }
+
+    /*!
+    @brief convert the number text in token_buffer to its value and token type
+
+    The digit sequence in token_buffer has already been validated (by the
+    scan_number() state machine or by the contiguous fast path) and holds '.'
+    as decimal point, independent of the locale. Integers are parsed first and fall
+    back to floating point on overflow. This is shared so both scanners produce
+    identical results.
+
+    @param[in] mantissa_end  offset just past the last mantissa byte in
+                             token_buffer (the index of 'e'/'E', or
+                             token_buffer.size() when there is no exponent);
+                             with decimal_point_position, it locates the parts
+                             of a float token without scanning it again
+    */
+    token_type convert_number(token_type number_type, std::size_t mantissa_end)
+    {
+        // accept() only needs to know whether the input is valid, so it sets
+        // discard_values (see json.hpp), and an integer token whose
+        // digit count shows that it fits is reported without calling
+        // convert_integer(). A number with up to 18 digits always fits into
+        // both std::uint64_t and std::int64_t (18 nines is about 1e18, below
+        // INT64_MAX, which is about 9.2e18). Longer tokens take the exact path
+        // below, including the fallback to floating point when the value does
+        // not fit.
+        //
+        // With a narrower number_unsigned_t/number_integer_t (e.g.
+        // std::uint32_t), the exact path would reclassify some of these tokens
+        // as (finite) floats, while this check reports integers. That does not
+        // change the result of accept(): it always parses through
+        // json_sax_acceptor, whose number callbacks discard their argument and
+        // return true, and the parser rejects neither integers nor finite
+        // floats. value_unsigned/value_integer are left unset here, so a caller
+        // that reads the converted value must not set discard_values.
+        //
+        // On contiguous input, scan_number_bulk_contiguous() converts integer
+        // tokens itself and does not pass them to this function, unless
+        // JSON_DIAGNOSTIC_POSITIONS is enabled. This check is therefore only
+        // reached for input without bulk access (e.g. streams), with
+        // JSON_DIAGNOSTIC_POSITIONS, or when scan_number_bulk_contiguous()
+        // falls back to scan_number().
+        if (discard_values())
+        {
+            constexpr std::size_t safe_digit_count = 18;
+            if (number_type == token_type::value_unsigned && token_buffer.size() <= safe_digit_count)
+            {
+                return token_type::value_unsigned;
+            }
+            if (number_type == token_type::value_integer && token_buffer.size() - 1 <= safe_digit_count)
+            {
+                return token_type::value_integer;
+            }
+        }
+
+        const char* const num_begin = token_buffer.data();
+        const char* const num_end = num_begin + token_buffer.size();
+
+        if (number_type != token_type::value_float)
+        {
+            const token_type integer_result = convert_integer(number_type, num_begin, num_end);
+            if (integer_result != token_type::uninitialized)
+            {
+                return integer_result;
             }
         }
 
         // this code is reached if we parse a floating-point number or if an
-        // integer conversion above failed
-        strtof(value_float, token_buffer.data(), &endptr);
+        // integer conversion above overflowed. float and double (and long
+        // double where it is binary64) are converted by the library itself,
+        // correctly rounded and independent of the locale; other long double
+        // formats use std::from_chars when available, otherwise the
+        // locale-aware strtold.
+        if (convert_float_fast(num_begin, num_end, decimal_point_position, mantissa_end, value_float))
+        {
+            return token_type::value_float;
+        }
 
-        // we checked the number format before
-        assert(endptr == token_buffer.data() + token_buffer.size());
-
+        convert_float_locale_aware(token_buffer, decimal_point_position, value_float);
         return token_type::value_float;
     }
 
     /*!
-    @param[in] literal_text  the literal text to expect
-    @param[in] length        the length of the passed literal text
-    @param[in] return_type   the token type to return on success
+    @brief contiguous fast path for scanning a number
+
+    Parses the whole number token straight from the input buffer, avoiding the
+    per-character get()/add() of scan_number(). On success it fills token_buffer
+    (as scan_number() does) and
+    returns the token type. On anything it does not fully recognize as a
+    well-formed number it makes no state change and returns
+    token_type::uninitialized, so the caller falls back to scan_number(), which
+    then produces the exact diagnostic. @a current is the first digit or the
+    leading minus (already read); the remaining bytes are taken from the adapter.
     */
-    JSON_HEDLEY_NON_NULL(2)
-    token_type scan_literal(const char_type* literal_text, const std::size_t length,
-                            token_type return_type)
+    token_type scan_number_bulk_contiguous()
     {
-        assert(std::char_traits<char_type>::to_char_type(current) == literal_text[0]);
-        for (std::size_t i = 1; i < length; ++i)
+        // called right after scan_after_whitespace() read current (see
+        // get_after_string_run()), so no unget is pending
+        JSON_ASSERT(!next_unget);
+        const std::size_t rem = ia.bulk_remaining();
+        if (rem == 0)
         {
-            if (JSON_HEDLEY_UNLIKELY(std::char_traits<char_type>::to_char_type(get()) != literal_text[i]))
+            // the first digit is the last input byte; let scan_number() finish
+            return token_type::uninitialized;
+        }
+        // the byte before the next unread one is current (contiguous input)
+        const char* const data = reinterpret_cast<const char*>(ia.bulk_data()) - 1;
+        const std::size_t avail = rem + 1;
+
+        // validate + classify the number extent (mirrors scan_number()'s grammar)
+        // and accumulate the mantissa digits on the way, so that tokens with up
+        // to 19 digits need no second pass for their value
+        std::size_t i = 0;
+        std::size_t dot_index = std::string::npos;
+        token_type number_type = token_type::value_unsigned;
+        std::uint64_t w = 0;
+        if (data[0] == '-')
+        {
+            number_type = token_type::value_integer;
+            i = 1; // avail >= 2: rem == 0 returned above
+        }
+        const std::size_t integer_begin = i;
+        if (data[i] == '0')
+        {
+            ++i;
+        }
+        else if (data[i] >= '1' && data[i] <= '9')
+        {
+            i = accumulate_digits(data, i, avail, w);
+        }
+        else
+        {
+            return token_type::uninitialized;
+        }
+        std::size_t digit_count = i - integer_begin;
+        std::size_t fraction_digits = 0;
+        if (i < avail && data[i] == '.')
+        {
+            number_type = token_type::value_float;
+            dot_index = i;
+            ++i;
+            if (i >= avail || !(data[i] >= '0' && data[i] <= '9'))
+            {
+                return token_type::uninitialized;
+            }
+            const std::size_t fraction_begin = i;
+            i = accumulate_digits(data, i, avail, w);
+            fraction_digits = i - fraction_begin;
+            digit_count += fraction_digits;
+        }
+        // the mantissa ends here, whether or not an exponent part follows
+        const std::size_t mantissa_end = i;
+        std::int64_t exponent = 0;
+        if (i < avail && (data[i] == 'e' || data[i] == 'E'))
+        {
+            number_type = token_type::value_float;
+            ++i;
+            bool negative_exponent = false;
+            if (i < avail && (data[i] == '+' || data[i] == '-'))
+            {
+                negative_exponent = data[i] == '-';
+                ++i;
+            }
+            if (i >= avail || !(data[i] >= '0' && data[i] <= '9'))
+            {
+                return token_type::uninitialized;
+            }
+            // saturated far beyond every range, see parse_float_exponent()
+            constexpr std::int64_t saturation = 100000000000000000; // 10^17
+            while (i < avail && data[i] >= '0' && data[i] <= '9')
+            {
+                if (exponent < saturation)
+                {
+                    exponent = (exponent * 10) + (data[i] - '0');
+                }
+                ++i;
+            }
+            exponent = negative_exponent ? -exponent : exponent;
+        }
+        const std::size_t len = i;
+        if (number_may_continue(len == avail, std::integral_constant<bool, bulk_window> {}))
+        {
+            return token_type::uninitialized;
+        }
+
+        // reset() records where this token starts (for diagnostics), so it has
+        // to run before the input position advances below
+        reset();
+
+        // An integer token needs no token_buffer: the SAX callbacks for
+        // number_integer/number_unsigned take only the value, and the overflow
+        // diagnostic rebuilds the text from the input. Convert straight from the
+        // input buffer and leave token_buffer empty. (JSON_DIAGNOSTIC_POSITIONS
+        // derives a number's start position from get_string().size(), so there
+        // the token still has to be materialized.)
+#if !JSON_DIAGNOSTIC_POSITIONS
+        if (number_type != token_type::value_float)
+        {
+            // up to 18 digits always fit into std::uint64_t and std::int64_t
+            const token_type integer_result = (digit_count <= 18)
+                                              ? store_integer(number_type, w)
+                                              : convert_integer(number_type, data, data + len);
+            if (JSON_HEDLEY_LIKELY(integer_result != token_type::uninitialized))
+            {
+                bulk_consume(data + 1, len - 1);
+                read_number_terminator(std::integral_constant<bool, bulk_window> {});
+                return integer_result;
+            }
+            // The value does not fit an integer, so this token converts as a
+            // float. Recording that here keeps convert_number() below from
+            // repeating the integer attempt that just failed.
+            number_type = token_type::value_float;
+        }
+#endif
+
+        decimal_point_position = dot_index;
+
+        bulk_consume(data + 1, len - 1);
+        read_number_terminator(std::integral_constant<bool, bulk_window> {});
+
+        // a float whose digits all fit into w converts from the accumulated
+        // value; longer ones (and other float formats) take the general path
+        if (number_type == token_type::value_float && digit_count <= 19)
+        {
+            float_significand s;
+            s.w = w;
+            s.exponent = exponent - static_cast<std::int64_t>(fraction_digits);
+            s.negative = data[0] == '-';
+            if (convert_accumulated_float(s, std::integral_constant<bool, has_native_float_format<number_float_t>::value> {}))
+            {
+                // the token text is only copied into token_buffer when
+                // get_string() asks for it; the library's own SAX handlers
+                // ignore it. A window into a stream may be refilled by the
+                // next read, so there the text is copied right away.
+                if (bulk_window)
+                {
+                    token_buffer.append(reinterpret_cast<const typename string_t::value_type*>(data), len);
+                }
+                else
+                {
+                    pending_number_text = data;
+                    pending_number_length = len;
+                }
+                return token_type::value_float;
+            }
+        }
+
+        // materialize the token exactly as scan_number() would. reset() already
+        // cleared token_buffer, so append() fills it (assign() is avoided
+        // because custom string_t types need not provide it)
+        token_buffer.append(reinterpret_cast<const typename string_t::value_type*>(data), len);
+        return convert_number(number_type, mantissa_end);
+    }
+
+    /// window adapter: a number that reaches the end of the window may continue
+    /// after it, so scan_number() has to read it character by character
+    static constexpr bool number_may_continue(bool at_end, std::true_type /*window*/) noexcept
+    {
+        return at_end;
+    }
+
+    /// the end of the block is the end of the input, which ends the number
+    static constexpr bool number_may_continue(bool /*at_end*/, std::false_type /*window*/) noexcept
+    {
+        return false;
+    }
+
+    /// window adapter: read the character after a bulk-scanned number and unget
+    /// it, as scan_number() does. The adapter is a stream that is handed back to
+    /// the user, who must find the same input consumed either way.
+    void read_number_terminator(std::true_type /*window*/)
+    {
+        get();
+        unget();
+    }
+
+    /// the input is not handed back, so the terminator can stay unread
+    void read_number_terminator(std::false_type /*window*/) const noexcept {}
+
+    /// binary32/binary64: the value of a float token from its accumulated
+    /// significand (see scan_number_bulk_contiguous())
+    bool convert_accumulated_float(const float_significand& s, std::true_type /*native*/) noexcept
+    {
+        // accept() only needs to know that the value is finite (see the parser):
+        // w < 10^19, so a value below 10^max_exponent10 cannot overflow, and a
+        // value that underflows is a finite number as well. Only a token that
+        // may overflow has to be converted to find out.
+        if (JSON_HEDLEY_UNLIKELY(discard_values() && s.exponent + 19 <= std::numeric_limits<number_float_t>::max_exponent10))
+        {
+            value_float = 0;
+            return true;
+        }
+        value_float = decimal_to_float<number_float_t>(s);
+        return true;
+    }
+
+    /// other formats (e.g. x87 long double): not instantiated for them, as
+    /// decimal_to_float() only supports binary32/binary64
+    static bool convert_accumulated_float(const float_significand& /*s*/, std::false_type /*native*/) noexcept
+    {
+        return false;
+    }
+
+    /// the value of an integer token with at most 18 digits, accumulated in @a w
+    token_type store_integer(token_type number_type, std::uint64_t w) noexcept
+    {
+        if (number_type == token_type::value_unsigned)
+        {
+            value_unsigned = static_cast<number_unsigned_t>(w);
+            // reject values that do not round-trip into a narrower type
+            return (static_cast<std::uint64_t>(value_unsigned) == w) ? token_type::value_unsigned : token_type::uninitialized;
+        }
+        const std::int64_t x = -static_cast<std::int64_t>(w);
+        value_integer = static_cast<number_integer_t>(x);
+        return (static_cast<std::int64_t>(value_integer) == x) ? token_type::value_integer : token_type::uninitialized;
+    }
+
+    /// contiguous input: try the number fast path, else the byte-path scanner
+    token_type scan_number_dispatch(std::true_type /*bulk*/)
+    {
+        const token_type t = scan_number_bulk_contiguous();
+        return (t != token_type::uninitialized) ? t : scan_number();
+    }
+
+    /// streaming input: always use the byte-path scanner
+    token_type scan_number_dispatch(std::false_type /*bulk*/)
+    {
+        return scan_number();
+    }
+
+    /*!
+    @param[in] rest         the literal text after its first character, which
+                            is current (its length is a template parameter, so
+                            that the comparison of the contiguous fast path is
+                            a fixed-size load, not a call of memcmp)
+    @param[in] return_type  the token type to return on success
+    */
+    template<std::size_t N>
+    JSON_HEDLEY_NEVER_INLINE token_type scan_literal(const char (&rest)[N], token_type return_type) // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    {
+        constexpr std::size_t length = N - 1;
+        if (scan_literal_bulk(rest, length, std::integral_constant<bool, bulk_scan> {}))
+        {
+            return return_type;
+        }
+        for (std::size_t i = 0; i < length; ++i)
+        {
+            if (JSON_HEDLEY_UNLIKELY(char_traits<char_type>::to_char_type(get()) != static_cast<char_type>(rest[i])))
             {
                 error_message = "invalid literal";
                 return token_type::parse_error;
             }
         }
         return return_type;
+    }
+
+    /// contiguous input: compare the rest of a literal at once; false (and
+    /// nothing consumed) if it does not match, so that the byte path reports
+    /// the error at the right character
+    JSON_HEDLEY_ALWAYS_INLINE bool scan_literal_bulk(const char* rest, const std::size_t length, std::true_type /*bulk*/)
+    {
+        // called right after scan_after_whitespace() read current (see
+        // get_after_string_run()), so no unget is pending
+        JSON_ASSERT(!next_unget);
+        if (ia.bulk_remaining() < length
+                || std::memcmp(ia.bulk_data(), rest, length) != 0)
+        {
+            return false;
+        }
+        bulk_consume(reinterpret_cast<const char*>(ia.bulk_data()), length);
+        current = static_cast<char_int_type>(static_cast<unsigned char>(rest[length - 1]));
+        return true;
+    }
+
+    /// streaming input: no bulk fast path
+    bool scan_literal_bulk(const char* /*rest*/, const std::size_t /*length*/, std::false_type /*bulk*/) const noexcept
+    {
+        return false;
     }
 
     /////////////////////
@@ -1238,8 +1809,50 @@ scan_number_done:
     void reset() noexcept
     {
         token_buffer.clear();
+        pending_number_text = nullptr;
+        decimal_point_position = std::string::npos;
+
+#if JSON_DIAGNOSTIC_POSITIONS
+        // the first character of the token has already been read, hence the -1
+        token_start_position = get_chars_read_total() - 1;
+#endif
+
+        note_token_start(std::integral_constant<bool, lazy_token_string> {});
+    }
+
+    /// seekable adapter: remember where the current token starts so it can be
+    /// reconstructed from the input on error; current has already been
+    /// consumed, hence the -1
+    void note_token_start(std::true_type /*lazy*/)
+    {
+        note_token_start_lazy(std::integral_constant<bool, adapter_token> {});
+    }
+
+    void note_token_start_lazy(std::false_type /*adapter_token*/) noexcept
+    {
+        token_string_start = ia.get_consumed_count() - 1;
+    }
+
+    /// token-tracking adapter: start tracking the token at the first character
+    void begin_token(std::true_type /*adapter_token*/) noexcept
+    {
+        ia.begin_token();
+    }
+
+    void begin_token(std::false_type /*adapter_token*/) const noexcept {}
+
+    /// token-tracking adapter: the token starts with the current character
+    void note_token_start_lazy(std::true_type /*adapter_token*/)
+    {
+        ia.mark_token_start(current);
+    }
+
+    /// streaming adapter: start copying the token eagerly, beginning with the
+    /// already-read first character
+    void note_token_start(std::false_type /*lazy*/) noexcept
+    {
         token_string.clear();
-        token_string.push_back(std::char_traits<char_type>::to_char_type(current));
+        token_string.push_back(char_traits<char_type>::to_char_type(current));
     }
 
     /*
@@ -1247,19 +1860,18 @@ scan_number_done:
 
     This function provides the interface to the used input adapter. It does
     not throw in case the input reached EOF, but returns a
-    `std::char_traits<char>::eof()` in that case.  Stores the scanned characters
+    `char_traits<char>::eof()` in that case.  Stores the scanned characters
     for use in error messages.
 
     @return character read from the input
     */
     char_int_type get()
     {
-        ++position.chars_read_total;
-        ++position.chars_read_current_line;
+        advance_position();
 
         if (next_unget)
         {
-            // just reset the next_unget variable and work with current
+            // only reset the next_unget variable and work with current
             next_unget = false;
         }
         else
@@ -1267,18 +1879,88 @@ scan_number_done:
             current = ia.get_character();
         }
 
-        if (JSON_HEDLEY_LIKELY(current != std::char_traits<char_type>::eof()))
-        {
-            token_string.push_back(std::char_traits<char_type>::to_char_type(current));
-        }
+        return track_after_read();
+    }
 
+    /// shared head of get() / get_ignoring_pending_unget(): bump the
+    /// per-character position counters (line-count-on-'\n' bookkeeping is
+    /// handled afterwards, in track_after_read(), once `current` is known)
+    void advance_position() noexcept
+    {
+        advance_position_impl(std::integral_constant<bool, lazy_position> {});
+    }
+
+    /// seekable adapter: the position is derived from the adapter on demand
+    void advance_position_impl(std::true_type /*lazy*/) const noexcept {}
+
+    /// streaming adapter: count the character
+    void advance_position_impl(std::false_type /*lazy*/) noexcept
+    {
+        ++position.chars_read_total;
+        ++position.chars_read_current_line;
+    }
+
+    /// shared tail of get() / get_ignoring_pending_unget(): capture the
+    /// character for error messages (if needed) and update line/column
+    /// bookkeeping for the character now in `current`
+    char_int_type track_after_read()
+    {
+        // seekable adapters reconstruct the token lazily on error (see
+        // get_token_string), so the eager per-character copy is skipped
+        capture_char(std::integral_constant<bool, lazy_token_string> {});
+        track_newline(std::integral_constant<bool, lazy_position> {});
+        return current;
+    }
+
+    /// seekable adapter: lines are counted on demand in get_position()
+    void track_newline(std::true_type /*lazy*/) const noexcept {}
+
+    /// streaming adapter: start a new line after reading a newline
+    void track_newline(std::false_type /*lazy*/) noexcept
+    {
         if (current == '\n')
         {
             ++position.lines_read;
+            // remember the column the newline was read at: chars_read_current_line
+            // is about to be cleared, and a matching unget() cannot reconstruct it
+            chars_read_before_newline = position.chars_read_current_line;
             position.chars_read_current_line = 0;
         }
+    }
 
-        return current;
+    /*!
+    @brief like get(), but for call sites that can prove no unget() is pending
+
+    get() has to check the `next_unget` flag on every call, because a
+    previous token may have ended with unget() (e.g. scan_number() always
+    ungets the character that terminated the number, so the next call to
+    scan() can see it again). skip_whitespace() reads that first,
+    possibly-ungotten character via a plain get(), but every further
+    character it reads is guaranteed to be a fresh read: nothing between
+    those calls invokes unget(). This variant skips the (otherwise always
+    false) next_unget branch for those calls; it is not a general
+    replacement for get().
+    */
+    char_int_type get_ignoring_pending_unget()
+    {
+        JSON_ASSERT(!next_unget);
+
+        advance_position();
+        current = ia.get_character();
+
+        return track_after_read();
+    }
+
+    /// seekable adapter: nothing to capture, the token is rebuilt on error
+    void capture_char(std::true_type /*lazy*/) const noexcept {}
+
+    /// streaming adapter: copy the scanned character into token_string
+    void capture_char(std::false_type /*lazy*/)
+    {
+        if (JSON_HEDLEY_LIKELY(current != char_traits<char_type>::eof()))
+        {
+            token_string.push_back(char_traits<char_type>::to_char_type(current));
+        }
     }
 
     /*!
@@ -1287,30 +1969,70 @@ scan_number_done:
     We implement unget by setting variable next_unget to true. The input is not
     changed - we just simulate ungetting by modifying chars_read_total,
     chars_read_current_line, and token_string. The next call to get() will
-    behave as if the unget character is read again.
+    behave as if the unget character is read again. With lazy_position, the
+    pending next_unget is all get_chars_read_total() needs.
     */
     void unget()
     {
         next_unget = true;
+        unget_position(std::integral_constant<bool, lazy_position> {});
+        uncapture_char(std::integral_constant<bool, lazy_token_string> {});
+    }
 
+    /// seekable adapter: get_chars_read_total() accounts for next_unget
+    void unget_position(std::true_type /*lazy*/) const noexcept {}
+
+    /// streaming adapter: step the counters back over the ungotten character
+    void unget_position(std::false_type /*lazy*/) noexcept
+    {
         --position.chars_read_total;
 
         // in case we "unget" a newline, we have to also decrement the lines_read
+        // and restore the column that get() cleared when it saw the newline;
+        // chars_read_current_line == 0 can only mean the last get() read one
         if (position.chars_read_current_line == 0)
         {
             if (position.lines_read > 0)
             {
                 --position.lines_read;
             }
+
+            // chars_read_before_newline counts the newline itself, which is the
+            // character being ungotten, hence the -1
+            position.chars_read_current_line = (chars_read_before_newline > 0)
+                                               ? chars_read_before_newline - 1
+                                               : 0;
         }
         else
         {
             --position.chars_read_current_line;
         }
+    }
 
-        if (JSON_HEDLEY_LIKELY(current != std::char_traits<char_type>::eof()))
+    /// adapter without lookahead: nothing to do (see release_lookahead)
+    void release_lookahead_impl(std::false_type /*can_release*/) const noexcept {}
+
+    /// adapter with lookahead: leave the character in the input instead
+    void release_lookahead_impl(std::true_type /*can_release*/)
+    {
+        if (next_unget)
         {
-            assert(not token_string.empty());
+            // the character is read from the input again rather than replayed
+            // from current, so the adapter must not step over it
+            next_unget = false;
+            ia.release_lookahead();
+        }
+    }
+
+    /// seekable adapter: nothing was captured, so nothing to undo
+    void uncapture_char(std::true_type /*lazy*/) const noexcept {}
+
+    /// streaming adapter: drop the character copied by the matching get()
+    void uncapture_char(std::false_type /*lazy*/)
+    {
+        if (JSON_HEDLEY_LIKELY(current != char_traits<char_type>::eof()))
+        {
+            JSON_ASSERT(!token_string.empty());
             token_string.pop_back();
         }
     }
@@ -1320,6 +2042,34 @@ scan_number_done:
     {
         token_buffer.push_back(static_cast<typename string_t::value_type>(c));
     }
+
+    /// add a character of a string token; accept() checks the string but does
+    /// not keep its value (@a keep is false)
+    void add_string_char(std::true_type /*keep*/, char_int_type c)
+    {
+        token_buffer.push_back(static_cast<typename string_t::value_type>(c));
+    }
+
+    static void add_string_char(std::false_type /*keep*/, char_int_type /*c*/) noexcept {}
+
+    /// add the UTF-8 bytes of a code point from a \\u escape to a string token
+    void add_codepoint(std::true_type /*keep*/, int codepoint)
+    {
+        encode_utf8(static_cast<std::uint32_t>(codepoint), [this](std::uint32_t byte)
+        {
+            add(static_cast<char_int_type>(byte));
+        });
+    }
+
+    static void add_codepoint(std::false_type /*keep*/, int /*codepoint*/) noexcept {}
+
+    /// append a run of ordinary string characters (see get_after_string_run())
+    void append_string_run(std::true_type /*keep*/, const unsigned char* data, std::size_t n)
+    {
+        token_buffer.append(reinterpret_cast<const typename string_t::value_type*>(data), n);
+    }
+
+    static void append_string_run(std::false_type /*keep*/, const unsigned char* /*data*/, std::size_t /*n*/) noexcept {}
 
   public:
     /////////////////////
@@ -1344,8 +2094,29 @@ scan_number_done:
         return value_float;
     }
 
-    /// return current string value (implicitly resets the token; useful only once)
+    /// return current string value
     string_t& get_string()
+    {
+        if (pending_number_text != nullptr)
+        {
+            token_buffer.append(reinterpret_cast<const typename string_t::value_type*>(pending_number_text), pending_number_length);
+            pending_number_text = nullptr;
+        }
+        // a number token holds '.' regardless of the locale (#4084)
+        return token_buffer;
+    }
+
+    /// the value of a string token (key or string), which never has pending
+    /// number text, so get_string()'s check is not needed
+    string_t& get_string_token() noexcept
+    {
+        JSON_ASSERT(pending_number_text == nullptr);
+        return token_buffer;
+    }
+
+    /// the text of a float token for a SAX handler that ignores it (the
+    /// library's own handlers): empty, without copying the token
+    const string_t& get_ignored_number_text() const noexcept
     {
         return token_buffer;
     }
@@ -1354,10 +2125,127 @@ scan_number_done:
     // diagnostics
     /////////////////////
 
+    /*!
+    @brief return the number of characters read so far
+
+    Unlike get_position(), this is O(1) for all adapters, so it may be called
+    for every value (JSON_DIAGNOSTIC_POSITIONS).
+    */
+    std::size_t get_chars_read_total() const noexcept
+    {
+        return get_chars_read_total_impl(std::integral_constant<bool, lazy_position> {});
+    }
+
     /// return position of last read token
-    constexpr position_t get_position() const noexcept
+    position_t get_position() const
+    {
+        return get_position_impl(std::integral_constant<bool, lazy_position> {});
+    }
+
+    /*!
+    @brief pass a pending simulated unget on to the input
+
+    unget() only rewinds the lexer's own bookkeeping, so the character that
+    terminated the last token (e.g. the character after a number) would still
+    be stepped over when the input adapter is done. Callers that hand the
+    input back to the user afterwards - operator>> and non-strict sax_parse -
+    call this once when scanning is done, so that the input is positioned
+    right after the value.
+
+    Adapters without lookahead (see input_adapter_supports_lookahead) are not
+    handed back to the user, so this is a no-op for them. Without
+    JSON_PRECISE_STREAM_POSITION, no adapter has lookahead, so this is always a
+    no-op and the terminating character stays consumed.
+
+    Scanning may continue after this call: @a next_unget is cleared, and the
+    character is read from the input again instead of being replayed from
+    @a current. A pending unget of EOF needs no special case, because reaching
+    EOF leaves no lookahead to release.
+    */
+    void release_lookahead()
+    {
+        release_lookahead_impl(std::integral_constant<bool, can_release_lookahead> {});
+    }
+
+#if JSON_DIAGNOSTIC_POSITIONS
+    /// return the offset of the first character of the last read token; unlike
+    /// the token's parsed value, this accounts for escape sequences
+    constexpr std::size_t get_token_start_position() const noexcept
+    {
+        return token_start_position;
+    }
+#endif
+
+  private:
+    /// seekable adapter: every get() either read from the adapter (including
+    /// reads at EOF, which get() counts as characters as well) or replayed an
+    /// ungotten character, so the count is the adapter's read count minus a
+    /// still pending unget
+    std::size_t get_chars_read_total_impl(std::true_type /*lazy*/) const noexcept
+    {
+        return ia.get_read_count() - (next_unget ? 1u : 0u);
+    }
+
+    /// streaming adapter: the counter is maintained by get() and unget()
+    std::size_t get_chars_read_total_impl(std::false_type /*lazy*/) const noexcept
+    {
+        return position.chars_read_total;
+    }
+
+    /// seekable adapter: count the lines in the consumed input; O(input read
+    /// so far), but only called on errors
+    position_t get_position_impl(std::true_type /*lazy*/) const
+    {
+        position_t result;
+        result.chars_read_total = get_chars_read_total();
+        // reads at EOF count as characters but are not part of the input
+        const std::size_t consumed = (std::min)(result.chars_read_total, ia.get_consumed_count());
+        std::size_t line_start = 0;
+        result.lines_read = ia.count_consumed_lines(consumed, line_start);
+        result.chars_read_current_line = result.chars_read_total - line_start;
+        return result;
+    }
+
+    /// streaming adapter: the position is maintained by get() and unget()
+    position_t get_position_impl(std::false_type /*lazy*/) const noexcept
     {
         return position;
+    }
+
+  public:
+    /// seekable adapter: rebuild the last read token from the input on demand
+    const std::vector<char_type>& collect_token_chars(std::vector<char_type>& out, std::true_type /*lazy*/) const
+    {
+        return collect_token_chars_lazy(out, std::integral_constant<bool, adapter_token> {});
+    }
+
+    /// token-tracking adapter: the adapter hands out everything read since
+    /// mark_token_start(), except a pending unget (see below)
+    const std::vector<char_type>& collect_token_chars_lazy(std::vector<char_type>& out, std::true_type /*adapter_token*/) const
+    {
+        const bool pending_real_unget = next_unget && current != char_traits<char_type>::eof();
+        ia.copy_token(out, pending_real_unget);
+        return out;
+    }
+
+    const std::vector<char_type>& collect_token_chars_lazy(std::vector<char_type>& out, std::false_type /*adapter_token*/) const
+    {
+        // a pending unget of a real (non-EOF) character means that character
+        // was consumed from the input but is not part of the token; EOF is
+        // never consumed, so it must not be subtracted (mirrors unget())
+        const bool pending_real_unget = next_unget && current != char_traits<char_type>::eof();
+        const std::size_t stop = ia.get_consumed_count() - (pending_real_unget ? 1u : 0u);
+        if (JSON_HEDLEY_LIKELY(stop >= token_string_start))
+        {
+            ia.copy_consumed_range(token_string_start, stop, out);
+        }
+        return out;
+    }
+
+    /// streaming adapter: the token was copied eagerly while scanning
+    const std::vector<char_type>& collect_token_chars(std::vector<char_type>& /*out*/, std::false_type /*lazy*/) const
+    {
+        return token_string;
     }
 
     /// return the last read token (for errors only).  Will never contain EOF
@@ -1365,15 +2253,18 @@ scan_number_done:
     /// 255 may legitimately occur.  May contain NUL, which should be escaped.
     std::string get_token_string() const
     {
+        std::vector<char_type> reconstructed;
+        const std::vector<char_type>& chars = collect_token_chars(reconstructed, std::integral_constant<bool, lazy_token_string> {});
+
         // escape control characters
         std::string result;
-        for (const auto c : token_string)
+        for (const auto c : chars)
         {
             if (static_cast<unsigned char>(c) <= '\x1F')
             {
                 // escape control characters
                 std::array<char, 9> cs{{}};
-                (std::snprintf)(cs.data(), cs.size(), "<U+%.4X>", static_cast<unsigned char>(c));
+                static_cast<void>((std::snprintf)(cs.data(), cs.size(), "<U+%.4X>", static_cast<unsigned char>(c))); // NOLINT(cppcoreguidelines-pro-type-vararg,hicpp-vararg)
                 result += cs.data();
             }
             else
@@ -1406,7 +2297,7 @@ scan_number_done:
         if (get() == 0xEF)
         {
             // check if we completely parse the BOM
-            return get() == 0xBB and get() == 0xBF;
+            return get() == 0xBB && get() == 0xBF;
         }
 
         // the first character is not the beginning of the BOM; unget it to
@@ -1415,21 +2306,136 @@ scan_number_done:
         return true;
     }
 
+    /// whether `current` is one of the four JSON whitespace characters
+    bool current_is_whitespace() const noexcept
+    {
+        return current == ' ' || current == '\t' || current == '\n' || current == '\r';
+    }
+
+    void skip_whitespace()
+    {
+        // the first character may be a pending unget() left over from the
+        // previous token (see get_ignoring_pending_unget()); every
+        // subsequent character read by this loop is guaranteed fresh, since
+        // nothing below calls unget()
+        get();
+
+        if (!current_is_whitespace())
+        {
+            return;
+        }
+
+        // this is written as an if-guarded do-while (rather than a plain
+        // while loop) because that shape is what lets both GCC and Clang
+        // keep the input adapter's read pointer in a register across
+        // iterations; the equivalent while-loop measurably defeated that
+        // optimization in testing, turning long whitespace runs (e.g. the
+        // indentation of pretty-printed JSON) from a register-only loop
+        // into one that reloads the pointer from memory every character
+        do
+        {
+            if (current == '\n')
+            {
+                skip_indentation(std::integral_constant<bool, bulk_scan> {});
+            }
+            get_ignoring_pending_unget();
+        }
+        while (current_is_whitespace());
+    }
+
+    /*!
+    @brief contiguous input: skip the space indentation that follows a newline
+           8 bytes at a time
+
+    Pretty-printed JSON indents every line with a run of spaces, which the loop
+    in skip_whitespace() would otherwise read one character at a time. The
+    spaces are skipped 8 bytes at a time; the last 7 bytes of the input and any
+    other whitespace are left to that loop. Skipping bypasses get();
+    bulk_consume() does its bookkeeping.
+    */
+    void skip_indentation(std::true_type /*bulk*/)
+    {
+        JSON_ASSERT(!next_unget);
+        const std::size_t remaining = ia.bulk_remaining();
+        if (remaining < 8)
+        {
+            return;
+        }
+        const char* const data = reinterpret_cast<const char*>(ia.bulk_data());
+        std::size_t pos = 0;
+        for (; pos + 8 <= remaining; pos += 8)
+        {
+            // little-endian, so the first byte is the lowest
+            const std::uint64_t non_space = read_eight_bytes(data + pos) ^ 0x2020202020202020ull;
+            if (non_space != 0)
+            {
+                // skip the spaces before the first other byte of this word
+                pos += static_cast<std::size_t>(count_trailing_zeros(non_space)) / 8;
+                break;
+            }
+        }
+        bulk_consume(data, pos);
+    }
+
+    /// streaming input: no bulk fast path
+    void skip_indentation(std::false_type /*bulk*/) const noexcept {}
+
     token_type scan()
     {
         // initially, skip the BOM
-        if (position.chars_read_total == 0 and not skip_bom())
+        if (get_chars_read_total() == 0 && !skip_bom())
         {
             error_message = "invalid BOM; must be 0xEF 0xBB 0xBF if given";
             return token_type::parse_error;
         }
 
-        // read next character and ignore whitespace
-        do
+        // read the next character and ignore whitespace
+        skip_whitespace();
+
+        return scan_after_whitespace();
+    }
+
+    /*!
+    @brief scan the next token when the caller expects a separator (':' or
+           ',') most of the time
+
+    After an object key the next token is almost always ':', after a value
+    inside an object or array almost always ','. Testing for that character
+    first is a compare and a well-predicted branch, where the switch in
+    scan_after_whitespace() is an indirect jump through a table. Anything else
+    goes through the switch, so the result is the same as scan()'s.
+
+    May only be called after scan() has run once (the BOM check is skipped).
+    */
+    token_type scan_expecting(token_type expected_type)
+    {
+        JSON_ASSERT(expected_type == token_type::name_separator || expected_type == token_type::value_separator);
+        JSON_ASSERT(get_chars_read_total() > 0);
+        const char_int_type expected_char = static_cast<unsigned char>((expected_type == token_type::name_separator) ? ':' : ',');
+        skip_whitespace();
+        if (JSON_HEDLEY_LIKELY(current == expected_char))
         {
-            get();
+            return expected_type;
         }
-        while (current == ' ' or current == '\t' or current == '\n' or current == '\r');
+        return scan_after_whitespace();
+    }
+
+  private:
+    /// the part of scan() after the leading whitespace: skip comments and
+    /// scan the token that starts with current
+    token_type scan_after_whitespace()
+    {
+        // ignore comments
+        while (ignore_comments && current == '/')
+        {
+            if (!scan_comment())
+            {
+                return token_type::parse_error;
+            }
+
+            // skip following whitespace
+            skip_whitespace();
+        }
 
         switch (current)
         {
@@ -1448,25 +2454,20 @@ scan_number_done:
                 return token_type::value_separator;
 
             // literals
+            // (the text after the first character; no local arrays, which
+            // would give this function a stack canary on every token)
             case 't':
-            {
-                std::array<char_type, 4> true_literal = {{'t', 'r', 'u', 'e'}};
-                return scan_literal(true_literal.data(), true_literal.size(), token_type::literal_true);
-            }
+                return scan_literal("rue", token_type::literal_true);
             case 'f':
-            {
-                std::array<char_type, 5> false_literal = {{'f', 'a', 'l', 's', 'e'}};
-                return scan_literal(false_literal.data(), false_literal.size(), token_type::literal_false);
-            }
+                return scan_literal("alse", token_type::literal_false);
             case 'n':
-            {
-                std::array<char_type, 4> null_literal = {{'n', 'u', 'l', 'l'}};
-                return scan_literal(null_literal.data(), null_literal.size(), token_type::literal_null);
-            }
+                return scan_literal("ull", token_type::literal_null);
 
             // string
             case '\"':
-                return scan_string();
+                // accept() (DiscardValues) checks strings without copying them
+                // into token_buffer
+                return scan_string(keep_strings {});
 
             // number
             case '-':
@@ -1480,12 +2481,15 @@ scan_number_done:
             case '7':
             case '8':
             case '9':
-                return scan_number();
+                return scan_number_dispatch(std::integral_constant<bool, bulk_scan> {});
 
-            // end of input (the null byte is needed when parsing from
-            // string literals)
+#if !JSON_STRICT_NUL_HANDLING
             case '\0':
-            case std::char_traits<char_type>::eof():
+#endif
+            // end of input; by default, a null byte is also treated as end of
+            // input for backwards compatibility (see JSON_STRICT_NUL_HANDLING
+            // to opt into rejecting a null byte in the input instead)
+            case char_traits<char_type>::eof():
                 return token_type::end_of_input;
 
             // error
@@ -1495,21 +2499,43 @@ scan_number_done:
         }
     }
 
-  private:
     /// input adapter
     InputAdapterType ia;
 
+    /// whether comments should be ignored (true) or signaled as errors (false)
+    const bool ignore_comments = false;
+
     /// the current character
-    char_int_type current = std::char_traits<char_type>::eof();
+    char_int_type current = char_traits<char_type>::eof();
 
     /// whether the next get() call should just return current
     bool next_unget = false;
 
+    /// the text of the current float token in the input, not yet copied into
+    /// token_buffer (see get_string()), or nullptr
+    const char* pending_number_text = nullptr;
+    std::size_t pending_number_length = 0;
+
     /// the start position of the current token
     position_t position {};
 
-    /// raw input token string (for error messages)
+    /// the value chars_read_current_line had when the last newline was read, so
+    /// that unget() can restore the column instead of leaving it at 0
+    std::size_t chars_read_before_newline = 0;
+
+    /// raw input token string for error messages; only populated for streaming
+    /// adapters (seekable adapters reconstruct it lazily via token_string_start)
     std::vector<char_type> token_string {};
+
+    /// start offset of the current token within the input, used to reconstruct
+    /// the last read token on error for seekable adapters (see collect_token_chars)
+    std::size_t token_string_start = 0;
+
+#if JSON_DIAGNOSTIC_POSITIONS
+    /// start offset of the current token within the input, used to report
+    /// diagnostic positions (see reset())
+    std::size_t token_start_position = 0;
+#endif
 
     /// buffer for variable-length tokens (numbers, strings)
     string_t token_buffer {};
@@ -1522,8 +2548,24 @@ scan_number_done:
     number_unsigned_t value_unsigned = 0;
     number_float_t value_float = 0;
 
-    /// the decimal point
-    const char_int_type decimal_point_char = '.';
+    /// the position of the decimal point in token_buffer
+    std::size_t decimal_point_position = std::string::npos;
+
+    /// whether the caller only needs the token types and never looks at the
+    /// values of number and string tokens; DiscardValues, set only by accept(), which parses
+    /// through json_sax_acceptor. When set, convert_number() skips converting
+    /// integer tokens whose digit count guarantees that they fit into 64 bits
+    /// (see there), floats are converted only when they may overflow (see
+    /// convert_accumulated_float()), and strings are checked without being
+    /// copied into token_buffer (see scan())
+    static bool discard_values() noexcept
+    {
+        return DiscardValues;
+    }
+
+    /// the tag of scan_string(): whether string tokens are kept
+    using keep_strings = typename std::conditional<DiscardValues, std::false_type, std::true_type>::type;
 };
+
 }  // namespace detail
-}  // namespace nlohmann
+NLOHMANN_JSON_NAMESPACE_END

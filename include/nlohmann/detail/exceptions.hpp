@@ -1,119 +1,247 @@
+//     __ _____ _____ _____
+//  __|  |   __|     |   | |  JSON for Modern C++
+// |  |  |__   |  |  | | | |  version 3.12.0
+// |_____|_____|_____|_|___|  https://github.com/nlohmann/json
+//
+// SPDX-FileCopyrightText: 2013-2026 Niels Lohmann <https://nlohmann.me>
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
+#include <cstddef> // nullptr_t
 #include <exception> // exception
+#if JSON_DIAGNOSTICS
+    #include <numeric> // accumulate
+#endif
 #include <stdexcept> // runtime_error
 #include <string> // to_string
+#include <vector> // vector
 
+#include <nlohmann/detail/value_t.hpp>
+#include <nlohmann/detail/string_escape.hpp>
 #include <nlohmann/detail/input/position_t.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
+#include <nlohmann/detail/meta/cpp_future.hpp>
+#include <nlohmann/detail/meta/type_traits.hpp>
+#include <nlohmann/detail/string_concat.hpp>
 
-namespace nlohmann
-{
+// With -Wweak-vtables, Clang will complain about the exception classes as they
+// have no out-of-line virtual method definitions and their vtable will be
+// emitted in every translation unit. This issue cannot be fixed with a
+// header-only library as there is no implementation file to move these
+// functions to. As a result, we suppress this warning here to avoid client
+// code stumbling over this. See https://github.com/nlohmann/json/issues/4087
+// for a discussion.
+#if defined(__clang__)
+    JSON_HEDLEY_DIAGNOSTIC_PUSH
+    JSON_HEDLEY_PRAGMA(clang diagnostic ignored "-Wweak-vtables")
+#endif
+
+NLOHMANN_JSON_NAMESPACE_BEGIN
 namespace detail
 {
+
 ////////////////
 // exceptions //
 ////////////////
 
 /*!
-@brief general exception of the @ref basic_json class
-
-This class is an extension of `std::exception` objects with a member @a id for
-exception ids. It is used as the base class for all exceptions thrown by the
-@ref basic_json class. This class can hence be used as "wildcard" to catch
-exceptions.
-
-Subclasses:
-- @ref parse_error for exceptions indicating a parse error
-- @ref invalid_iterator for exceptions indicating errors with iterators
-- @ref type_error for exceptions indicating executing a member function with
-                  a wrong type
-- @ref out_of_range for exceptions indicating access out of the defined range
-- @ref other_error for exceptions indicating other library errors
-
-@internal
-@note To have nothrow-copy-constructible exceptions, we internally use
-      `std::runtime_error` which can cope with arbitrary-length error messages.
-      Intermediate strings are built with static functions and then passed to
-      the actual constructor.
-@endinternal
-
-@liveexample{The following code shows how arbitrary library exceptions can be
-caught.,exception}
-
-@since version 3.0.0
+@brief the ids of the exceptions thrown by the library
+@note The values are part of the public API: they are the `id` member of the
+      exceptions and appear in their `what()` messages.
+@sa https://json.nlohmann.me/home/exceptions/
 */
+enum class exception_id : int
+{
+    // parse_error
+    syntax_error = 101, ///< unexpected token or invalid literal while parsing JSON
+    patch_not_an_array = 104, ///< a JSON Patch document is not an array of objects
+    patch_invalid_operation = 105, ///< a JSON Patch operation is malformed
+    pointer_index_leading_zero = 106, ///< a JSON Pointer array index has a leading zero
+    pointer_missing_slash = 107, ///< a JSON Pointer does not start with '/'
+    pointer_invalid_escape = 108, ///< a JSON Pointer contains an escape other than ~0 and ~1
+    pointer_index_not_a_number = 109, ///< a JSON Pointer array index is not a number
+    unexpected_end_of_input = 110, ///< a binary input ends early, or has bytes left at its end
+    unexpected_byte = 112, ///< a binary input contains an unexpected byte or invalid length
+    invalid_string_or_size = 113, ///< a binary input contains an invalid string or size specification
+    bson_unsupported_type = 114, ///< a BSON record type is not supported
+    invalid_high_precision_number = 115, ///< a UBJSON/BJData high-precision number cannot be parsed
+    invalid_document_image = 116, ///< json_document::load() rejects an image
+    // invalid_iterator
+    iterators_incompatible = 201, ///< the iterators of a range belong to different values
+    iterator_from_other_value = 202, ///< an iterator does not belong to the value it is used with
+    iterator_range_from_other_value = 203, ///< an iterator range does not belong to the value it is used with
+    iterator_range_out_of_range = 204, ///< an iterator range of a primitive value is not [begin, end)
+    iterator_out_of_range = 205, ///< an iterator of a primitive value is not begin()
+    iterator_range_of_null = 206, ///< an iterator range belongs to a null value
+    iterator_key_not_object = 207, ///< key() is called on an iterator of a non-object
+    iterator_subscript_on_object = 208, ///< operator[] is called on an iterator of an object
+    iterator_arithmetic_on_object = 209, ///< an offset operator is used on an iterator of an object
+    insert_range_incompatible = 210, ///< the iterators of an inserted range belong to different values
+    insert_range_into_itself = 211, ///< an inserted range belongs to the value it is inserted into
+    iterators_compare_different_values = 212, ///< iterators of different values are compared
+    iterator_order_on_object = 213, ///< iterators of an object are compared by order
+    iterator_value_unavailable = 214, ///< an iterator does not refer to a value
+    // type_error
+    object_from_non_pairs = 301, ///< an object is created from an initializer list that is not a list of pairs
+    type_mismatch = 302, ///< a value has the wrong type for a conversion
+    incompatible_reference_type = 303, ///< get_ref() is called with a reference type that does not match the value
+    at_wrong_type = 304, ///< at() is called on a value of the wrong type
+    subscript_wrong_type = 305, ///< operator[] is called on a value of the wrong type
+    value_wrong_type = 306, ///< value() is called on a value of the wrong type
+    erase_wrong_type = 307, ///< erase() is called on a value of the wrong type
+    push_back_wrong_type = 308, ///< push_back() or operator+= is called on a value of the wrong type
+    insert_wrong_type = 309, ///< insert() is called on a value of the wrong type
+    swap_wrong_type = 310, ///< swap() is called on a value of the wrong type
+    emplace_wrong_type = 311, ///< emplace() or emplace_back() is called on a value of the wrong type
+    update_wrong_type = 312, ///< update() is called on a value of the wrong type
+    unflatten_invalid_value = 313, ///< unflatten() finds conflicting paths
+    unflatten_not_object = 314, ///< unflatten() is called on a non-object
+    unflatten_value_not_primitive = 315, ///< unflatten() is called on an object with non-primitive values
+    invalid_utf8 = 316, ///< dump() finds a string that is not valid UTF-8
+    type_not_serializable = 317, ///< a value cannot be serialized to the requested binary format
+    enum_key_duplicate = 318, ///< an enum-keyed map has two keys that serialize to the same string
+    document_binary_value = 319, ///< a binary value is stored in a json_document
+    document_image_unsupported = 320, ///< a discarded json_document cannot be saved as an image
+    discarded_value_used = 321, ///< a discarded value is used
+    // out_of_range
+    array_index_out_of_range = 401, ///< an array index is out of range
+    pointer_past_the_end_index = 402, ///< a JSON Pointer uses the array index '-'
+    key_not_found = 403, ///< an object key is not found
+    pointer_unresolved = 404, ///< a JSON Pointer reference token cannot be resolved
+    patch_on_root = 405, ///< the root of a value has no parent, e.g. for a JSON Patch 'remove' or 'add' at the root
+    number_overflow = 406, ///< a number cannot be stored without overflowing to NaN or INF
+    integer_too_large = 407, ///< an integer cannot be represented in the binary format
+    container_too_large = 408, ///< the size of a container in a binary input exceeds the maximal capacity
+    bson_key_with_null = 409, ///< a BSON key contains U+0000
+    value_out_of_range = 410, ///< an enum value is undefined, or a JSON Pointer array index exceeds size_type
+    patch_add_parent_not_container = 411, ///< the parent of a JSON Patch 'add' target is not a container
+    length_too_large = 412, ///< a length does not fit into the length field of a binary format
+    patch_remove_parent_not_container = 413, ///< the parent of a JSON Patch 'remove' target is not a container
+    patch_move_into_child = 414, ///< a JSON Patch 'move' moves a value into one of its children
+    subtype_out_of_range = 415, ///< a binary subtype does not fit into one byte
+    document_too_large = 416, ///< a json_document input, its edit storage, or an image reaches the 32-bit (4 GiB) limit
+    // other_error
+    internal_error = 500, ///< unreachable code was reached
+    patch_test_failed = 501, ///< a JSON Patch 'test' operation failed
+    size_marker_required = 502  ///< UBJSON/BJData output with type markers requires size markers
+};
+
+/// @brief general exception of the @ref basic_json class
+/// @sa https://json.nlohmann.me/api/basic_json/exception/
 class exception : public std::exception
 {
   public:
     /// returns the explanatory string
-    JSON_HEDLEY_RETURNS_NON_NULL
     const char* what() const noexcept override
     {
         return m.what();
     }
 
     /// the id of the exception
-    const int id;
+    const int id; // NOLINT(cppcoreguidelines-non-private-member-variables-in-classes)
 
   protected:
     JSON_HEDLEY_NON_NULL(3)
-    exception(int id_, const char* what_arg) : id(id_), m(what_arg) {}
+    exception(int id_, const char* what_arg) : id(id_), m(what_arg) {} // NOLINT(bugprone-throw-keyword-missing)
 
     static std::string name(const std::string& ename, int id_)
     {
-        return "[json.exception." + ename + "." + std::to_string(id_) + "] ";
+        return concat("[json.exception.", ename, '.', std::to_string(id_), "] ");
+    }
+
+    /// build the message "[json.exception.<ename>.<id>] <diagnostics><what_arg>"
+    template<typename BasicJsonContext>
+    static std::string what_impl(const std::string& ename, int id_, const std::string& what_arg, BasicJsonContext context)
+    {
+        return concat(name(ename, id_), diagnostics(context), what_arg);
+    }
+
+    static std::string diagnostics(std::nullptr_t /*leaf_element*/)
+    {
+        return "";
+    }
+
+    template<typename BasicJsonType>
+    static std::string diagnostics(const BasicJsonType* leaf_element)
+    {
+#if JSON_DIAGNOSTICS
+        std::vector<std::string> tokens;
+        for (const auto* current = leaf_element; current != nullptr && current->m_parent != nullptr; current = current->m_parent)
+        {
+            const auto* parent = current->m_parent;
+            if (parent->is_array())
+            {
+                for (std::size_t i = 0; i < parent->m_data.m_value.array->size(); ++i)
+                {
+                    if (&parent->m_data.m_value.array->operator[](i) == current)
+                    {
+                        tokens.emplace_back(std::to_string(i));
+                        break;
+                    }
+                }
+            }
+            else if (parent->is_object())
+            {
+                for (const auto& element : *parent->m_data.m_value.object)
+                {
+                    if (&element.second == current)
+                    {
+                        // data() is null-terminated, so a key containing
+                        // a null byte is cut short here rather than
+                        // truncating the whole message at what()
+                        tokens.emplace_back(element.first.data());
+                        break;
+                    }
+                }
+            }
+            // all other parent types (primitives) contribute no token
+        }
+
+        // the root value has no path, but still has a byte range
+        std::string prefix;
+        if (!tokens.empty())
+        {
+            const auto str = std::accumulate(tokens.rbegin(), tokens.rend(), std::string{},
+                                             [](const std::string & a, const std::string & b)
+            {
+                return concat(a, '/', detail::escape(b));
+            });
+            prefix = concat('(', str, ") ");
+        }
+
+        return concat(prefix, get_byte_positions(leaf_element));
+#else
+        return get_byte_positions(leaf_element);
+#endif
     }
 
   private:
     /// an exception object as storage for error messages
     std::runtime_error m;
+#if JSON_DIAGNOSTIC_POSITIONS
+    template<typename BasicJsonType>
+    static std::string get_byte_positions(const BasicJsonType* leaf_element)
+    {
+        // a value-initialized iterator has no value (invalid_iterator.212)
+        if (leaf_element != nullptr && leaf_element->start_pos() != std::string::npos && leaf_element->end_pos() != std::string::npos)
+        {
+            return concat("(bytes ", std::to_string(leaf_element->start_pos()), "-", std::to_string(leaf_element->end_pos()), ") ");
+        }
+        return "";
+    }
+#else
+    template<typename BasicJsonType>
+    static std::string get_byte_positions(const BasicJsonType* leaf_element)
+    {
+        static_cast<void>(leaf_element);
+        return "";
+    }
+#endif
 };
 
-/*!
-@brief exception indicating a parse error
-
-This exception is thrown by the library when a parse error occurs. Parse errors
-can occur during the deserialization of JSON text, CBOR, MessagePack, as well
-as when using JSON Patch.
-
-Member @a byte holds the byte index of the last read character in the input
-file.
-
-Exceptions have ids 1xx.
-
-name / id                      | example message | description
------------------------------- | --------------- | -------------------------
-json.exception.parse_error.101 | parse error at 2: unexpected end of input; expected string literal | This error indicates a syntax error while deserializing a JSON text. The error message describes that an unexpected token (character) was encountered, and the member @a byte indicates the error position.
-json.exception.parse_error.102 | parse error at 14: missing or wrong low surrogate | JSON uses the `\uxxxx` format to describe Unicode characters. Code points above above 0xFFFF are split into two `\uxxxx` entries ("surrogate pairs"). This error indicates that the surrogate pair is incomplete or contains an invalid code point.
-json.exception.parse_error.103 | parse error: code points above 0x10FFFF are invalid | Unicode supports code points up to 0x10FFFF. Code points above 0x10FFFF are invalid.
-json.exception.parse_error.104 | parse error: JSON patch must be an array of objects | [RFC 6902](https://tools.ietf.org/html/rfc6902) requires a JSON Patch document to be a JSON document that represents an array of objects.
-json.exception.parse_error.105 | parse error: operation must have string member 'op' | An operation of a JSON Patch document must contain exactly one "op" member, whose value indicates the operation to perform. Its value must be one of "add", "remove", "replace", "move", "copy", or "test"; other values are errors.
-json.exception.parse_error.106 | parse error: array index '01' must not begin with '0' | An array index in a JSON Pointer ([RFC 6901](https://tools.ietf.org/html/rfc6901)) may be `0` or any number without a leading `0`.
-json.exception.parse_error.107 | parse error: JSON pointer must be empty or begin with '/' - was: 'foo' | A JSON Pointer must be a Unicode string containing a sequence of zero or more reference tokens, each prefixed by a `/` character.
-json.exception.parse_error.108 | parse error: escape character '~' must be followed with '0' or '1' | In a JSON Pointer, only `~0` and `~1` are valid escape sequences.
-json.exception.parse_error.109 | parse error: array index 'one' is not a number | A JSON Pointer array index must be a number.
-json.exception.parse_error.110 | parse error at 1: cannot read 2 bytes from vector | When parsing CBOR or MessagePack, the byte vector ends before the complete value has been read.
-json.exception.parse_error.112 | parse error at 1: error reading CBOR; last byte: 0xF8 | Not all types of CBOR or MessagePack are supported. This exception occurs if an unsupported byte was read.
-json.exception.parse_error.113 | parse error at 2: expected a CBOR string; last byte: 0x98 | While parsing a map key, a value that is not a string has been read.
-json.exception.parse_error.114 | parse error: Unsupported BSON record type 0x0F | The parsing of the corresponding BSON record type is not implemented (yet).
-
-@note For an input with n bytes, 1 is the index of the first character and n+1
-      is the index of the terminating null byte or the end of file. This also
-      holds true when reading a byte vector (CBOR or MessagePack).
-
-@liveexample{The following code shows how a `parse_error` exception can be
-caught.,parse_error}
-
-@sa - @ref exception for the base class of the library exceptions
-@sa - @ref invalid_iterator for exceptions indicating errors with iterators
-@sa - @ref type_error for exceptions indicating executing a member function with
-                    a wrong type
-@sa - @ref out_of_range for exceptions indicating access out of the defined range
-@sa - @ref other_error for exceptions indicating other library errors
-
-@since version 3.0.0
-*/
+/// @brief exception indicating a parse error
+/// @sa https://json.nlohmann.me/api/basic_json/parse_error/
 class parse_error : public exception
 {
   public:
@@ -126,19 +254,33 @@ class parse_error : public exception
     @param[in] what_arg  the explanatory string
     @return parse_error object
     */
-    static parse_error create(int id_, const position_t& pos, const std::string& what_arg)
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static parse_error create(int id_, const position_t& pos, const std::string& what_arg, BasicJsonContext context)
     {
-        std::string w = exception::name("parse_error", id_) + "parse error" +
-                        position_string(pos) + ": " + what_arg;
-        return parse_error(id_, pos.chars_read_total, w.c_str());
+        const std::string w = concat(exception::name("parse_error", id_), "parse error",
+                                     position_string(pos), ": ", exception::diagnostics(context), what_arg);
+        return {id_, pos.chars_read_total, w.c_str()};
     }
 
-    static parse_error create(int id_, std::size_t byte_, const std::string& what_arg)
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static parse_error create(int id_, std::size_t byte_, const std::string& what_arg, BasicJsonContext context)
     {
-        std::string w = exception::name("parse_error", id_) + "parse error" +
-                        (byte_ != 0 ? (" at byte " + std::to_string(byte_)) : "") +
-                        ": " + what_arg;
-        return parse_error(id_, byte_, w.c_str());
+        const std::string w = concat(exception::name("parse_error", id_), "parse error",
+                                     (byte_ != 0 ? (concat(" at byte ", std::to_string(byte_))) : ""),
+                                     ": ", exception::diagnostics(context), what_arg);
+        return {id_, byte_, w.c_str()};
+    }
+
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static parse_error create(exception_id id_, const position_t& pos, const std::string& what_arg, BasicJsonContext context)
+    {
+        return create(static_cast<int>(id_), pos, what_arg, context);
+    }
+
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static parse_error create(exception_id id_, std::size_t byte_, const std::string& what_arg, BasicJsonContext context)
+    {
+        return create(static_cast<int>(id_), byte_, what_arg, context);
     }
 
     /*!
@@ -158,55 +300,27 @@ class parse_error : public exception
 
     static std::string position_string(const position_t& pos)
     {
-        return " at line " + std::to_string(pos.lines_read + 1) +
-               ", column " + std::to_string(pos.chars_read_current_line);
+        return concat(" at line ", std::to_string(pos.lines_read + 1),
+                      ", column ", std::to_string(pos.chars_read_current_line));
     }
 };
 
-/*!
-@brief exception indicating errors with iterators
-
-This exception is thrown if iterators passed to a library function do not match
-the expected semantics.
-
-Exceptions have ids 2xx.
-
-name / id                           | example message | description
------------------------------------ | --------------- | -------------------------
-json.exception.invalid_iterator.201 | iterators are not compatible | The iterators passed to constructor @ref basic_json(InputIT first, InputIT last) are not compatible, meaning they do not belong to the same container. Therefore, the range (@a first, @a last) is invalid.
-json.exception.invalid_iterator.202 | iterator does not fit current value | In an erase or insert function, the passed iterator @a pos does not belong to the JSON value for which the function was called. It hence does not define a valid position for the deletion/insertion.
-json.exception.invalid_iterator.203 | iterators do not fit current value | Either iterator passed to function @ref erase(IteratorType first, IteratorType last) does not belong to the JSON value from which values shall be erased. It hence does not define a valid range to delete values from.
-json.exception.invalid_iterator.204 | iterators out of range | When an iterator range for a primitive type (number, boolean, or string) is passed to a constructor or an erase function, this range has to be exactly (@ref begin(), @ref end()), because this is the only way the single stored value is expressed. All other ranges are invalid.
-json.exception.invalid_iterator.205 | iterator out of range | When an iterator for a primitive type (number, boolean, or string) is passed to an erase function, the iterator has to be the @ref begin() iterator, because it is the only way to address the stored value. All other iterators are invalid.
-json.exception.invalid_iterator.206 | cannot construct with iterators from null | The iterators passed to constructor @ref basic_json(InputIT first, InputIT last) belong to a JSON null value and hence to not define a valid range.
-json.exception.invalid_iterator.207 | cannot use key() for non-object iterators | The key() member function can only be used on iterators belonging to a JSON object, because other types do not have a concept of a key.
-json.exception.invalid_iterator.208 | cannot use operator[] for object iterators | The operator[] to specify a concrete offset cannot be used on iterators belonging to a JSON object, because JSON objects are unordered.
-json.exception.invalid_iterator.209 | cannot use offsets with object iterators | The offset operators (+, -, +=, -=) cannot be used on iterators belonging to a JSON object, because JSON objects are unordered.
-json.exception.invalid_iterator.210 | iterators do not fit | The iterator range passed to the insert function are not compatible, meaning they do not belong to the same container. Therefore, the range (@a first, @a last) is invalid.
-json.exception.invalid_iterator.211 | passed iterators may not belong to container | The iterator range passed to the insert function must not be a subrange of the container to insert to.
-json.exception.invalid_iterator.212 | cannot compare iterators of different containers | When two iterators are compared, they must belong to the same container.
-json.exception.invalid_iterator.213 | cannot compare order of object iterators | The order of object iterators cannot be compared, because JSON objects are unordered.
-json.exception.invalid_iterator.214 | cannot get value | Cannot get value for iterator: Either the iterator belongs to a null value or it is an iterator to a primitive type (number, boolean, or string), but the iterator is different to @ref begin().
-
-@liveexample{The following code shows how an `invalid_iterator` exception can be
-caught.,invalid_iterator}
-
-@sa - @ref exception for the base class of the library exceptions
-@sa - @ref parse_error for exceptions indicating a parse error
-@sa - @ref type_error for exceptions indicating executing a member function with
-                    a wrong type
-@sa - @ref out_of_range for exceptions indicating access out of the defined range
-@sa - @ref other_error for exceptions indicating other library errors
-
-@since version 3.0.0
-*/
+/// @brief exception indicating errors with iterators
+/// @sa https://json.nlohmann.me/api/basic_json/invalid_iterator/
 class invalid_iterator : public exception
 {
   public:
-    static invalid_iterator create(int id_, const std::string& what_arg)
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static invalid_iterator create(int id_, const std::string& what_arg, BasicJsonContext context)
     {
-        std::string w = exception::name("invalid_iterator", id_) + what_arg;
-        return invalid_iterator(id_, w.c_str());
+        const std::string w = exception::what_impl("invalid_iterator", id_, what_arg, context);
+        return {id_, w.c_str()};
+    }
+
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static invalid_iterator create(exception_id id_, const std::string& what_arg, BasicJsonContext context)
+    {
+        return create(static_cast<int>(id_), what_arg, context);
     }
 
   private:
@@ -215,52 +329,22 @@ class invalid_iterator : public exception
         : exception(id_, what_arg) {}
 };
 
-/*!
-@brief exception indicating executing a member function with a wrong type
-
-This exception is thrown in case of a type error; that is, a library function is
-executed on a JSON value whose type does not match the expected semantics.
-
-Exceptions have ids 3xx.
-
-name / id                     | example message | description
------------------------------ | --------------- | -------------------------
-json.exception.type_error.301 | cannot create object from initializer list | To create an object from an initializer list, the initializer list must consist only of a list of pairs whose first element is a string. When this constraint is violated, an array is created instead.
-json.exception.type_error.302 | type must be object, but is array | During implicit or explicit value conversion, the JSON type must be compatible to the target type. For instance, a JSON string can only be converted into string types, but not into numbers or boolean types.
-json.exception.type_error.303 | incompatible ReferenceType for get_ref, actual type is object | To retrieve a reference to a value stored in a @ref basic_json object with @ref get_ref, the type of the reference must match the value type. For instance, for a JSON array, the @a ReferenceType must be @ref array_t &.
-json.exception.type_error.304 | cannot use at() with string | The @ref at() member functions can only be executed for certain JSON types.
-json.exception.type_error.305 | cannot use operator[] with string | The @ref operator[] member functions can only be executed for certain JSON types.
-json.exception.type_error.306 | cannot use value() with string | The @ref value() member functions can only be executed for certain JSON types.
-json.exception.type_error.307 | cannot use erase() with string | The @ref erase() member functions can only be executed for certain JSON types.
-json.exception.type_error.308 | cannot use push_back() with string | The @ref push_back() and @ref operator+= member functions can only be executed for certain JSON types.
-json.exception.type_error.309 | cannot use insert() with | The @ref insert() member functions can only be executed for certain JSON types.
-json.exception.type_error.310 | cannot use swap() with number | The @ref swap() member functions can only be executed for certain JSON types.
-json.exception.type_error.311 | cannot use emplace_back() with string | The @ref emplace_back() member function can only be executed for certain JSON types.
-json.exception.type_error.312 | cannot use update() with string | The @ref update() member functions can only be executed for certain JSON types.
-json.exception.type_error.313 | invalid value to unflatten | The @ref unflatten function converts an object whose keys are JSON Pointers back into an arbitrary nested JSON value. The JSON Pointers must not overlap, because then the resulting value would not be well defined.
-json.exception.type_error.314 | only objects can be unflattened | The @ref unflatten function only works for an object whose keys are JSON Pointers.
-json.exception.type_error.315 | values in object must be primitive | The @ref unflatten function only works for an object whose keys are JSON Pointers and whose values are primitive.
-json.exception.type_error.316 | invalid UTF-8 byte at index 10: 0x7E | The @ref dump function only works with UTF-8 encoded strings; that is, if you assign a `std::string` to a JSON value, make sure it is UTF-8 encoded. |
-json.exception.type_error.317 | JSON value cannot be serialized to requested format | The dynamic type of the object cannot be represented in the requested serialization format (e.g. a raw `true` or `null` JSON object cannot be serialized to BSON) |
-
-@liveexample{The following code shows how a `type_error` exception can be
-caught.,type_error}
-
-@sa - @ref exception for the base class of the library exceptions
-@sa - @ref parse_error for exceptions indicating a parse error
-@sa - @ref invalid_iterator for exceptions indicating errors with iterators
-@sa - @ref out_of_range for exceptions indicating access out of the defined range
-@sa - @ref other_error for exceptions indicating other library errors
-
-@since version 3.0.0
-*/
+/// @brief exception indicating executing a member function with a wrong type
+/// @sa https://json.nlohmann.me/api/basic_json/type_error/
 class type_error : public exception
 {
   public:
-    static type_error create(int id_, const std::string& what_arg)
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static type_error create(int id_, const std::string& what_arg, BasicJsonContext context)
     {
-        std::string w = exception::name("type_error", id_) + what_arg;
-        return type_error(id_, w.c_str());
+        const std::string w = exception::what_impl("type_error", id_, what_arg, context);
+        return {id_, w.c_str()};
+    }
+
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static type_error create(exception_id id_, const std::string& what_arg, BasicJsonContext context)
+    {
+        return create(static_cast<int>(id_), what_arg, context);
     }
 
   private:
@@ -268,46 +352,22 @@ class type_error : public exception
     type_error(int id_, const char* what_arg) : exception(id_, what_arg) {}
 };
 
-/*!
-@brief exception indicating access out of the defined range
-
-This exception is thrown in case a library function is called on an input
-parameter that exceeds the expected range, for instance in case of array
-indices or nonexisting object keys.
-
-Exceptions have ids 4xx.
-
-name / id                       | example message | description
-------------------------------- | --------------- | -------------------------
-json.exception.out_of_range.401 | array index 3 is out of range | The provided array index @a i is larger than @a size-1.
-json.exception.out_of_range.402 | array index '-' (3) is out of range | The special array index `-` in a JSON Pointer never describes a valid element of the array, but the index past the end. That is, it can only be used to add elements at this position, but not to read it.
-json.exception.out_of_range.403 | key 'foo' not found | The provided key was not found in the JSON object.
-json.exception.out_of_range.404 | unresolved reference token 'foo' | A reference token in a JSON Pointer could not be resolved.
-json.exception.out_of_range.405 | JSON pointer has no parent | The JSON Patch operations 'remove' and 'add' can not be applied to the root element of the JSON value.
-json.exception.out_of_range.406 | number overflow parsing '10E1000' | A parsed number could not be stored as without changing it to NaN or INF.
-json.exception.out_of_range.407 | number overflow serializing '9223372036854775808' | UBJSON and BSON only support integer numbers up to 9223372036854775807. |
-json.exception.out_of_range.408 | excessive array size: 8658170730974374167 | The size (following `#`) of an UBJSON array or object exceeds the maximal capacity. |
-json.exception.out_of_range.409 | BSON key cannot contain code point U+0000 (at byte 2) | Key identifiers to be serialized to BSON cannot contain code point U+0000, since the key is stored as zero-terminated c-string |
-
-@liveexample{The following code shows how an `out_of_range` exception can be
-caught.,out_of_range}
-
-@sa - @ref exception for the base class of the library exceptions
-@sa - @ref parse_error for exceptions indicating a parse error
-@sa - @ref invalid_iterator for exceptions indicating errors with iterators
-@sa - @ref type_error for exceptions indicating executing a member function with
-                    a wrong type
-@sa - @ref other_error for exceptions indicating other library errors
-
-@since version 3.0.0
-*/
+/// @brief exception indicating access out of the defined range
+/// @sa https://json.nlohmann.me/api/basic_json/out_of_range/
 class out_of_range : public exception
 {
   public:
-    static out_of_range create(int id_, const std::string& what_arg)
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static out_of_range create(int id_, const std::string& what_arg, BasicJsonContext context)
     {
-        std::string w = exception::name("out_of_range", id_) + what_arg;
-        return out_of_range(id_, w.c_str());
+        const std::string w = exception::what_impl("out_of_range", id_, what_arg, context);
+        return {id_, w.c_str()};
+    }
+
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static out_of_range create(exception_id id_, const std::string& what_arg, BasicJsonContext context)
+    {
+        return create(static_cast<int>(id_), what_arg, context);
     }
 
   private:
@@ -315,42 +375,189 @@ class out_of_range : public exception
     out_of_range(int id_, const char* what_arg) : exception(id_, what_arg) {}
 };
 
-/*!
-@brief exception indicating other library errors
-
-This exception is thrown in case of errors that cannot be classified with the
-other exception types.
-
-Exceptions have ids 5xx.
-
-name / id                      | example message | description
------------------------------- | --------------- | -------------------------
-json.exception.other_error.501 | unsuccessful: {"op":"test","path":"/baz", "value":"bar"} | A JSON Patch operation 'test' failed. The unsuccessful operation is also printed.
-
-@sa - @ref exception for the base class of the library exceptions
-@sa - @ref parse_error for exceptions indicating a parse error
-@sa - @ref invalid_iterator for exceptions indicating errors with iterators
-@sa - @ref type_error for exceptions indicating executing a member function with
-                    a wrong type
-@sa - @ref out_of_range for exceptions indicating access out of the defined range
-
-@liveexample{The following code shows how an `other_error` exception can be
-caught.,other_error}
-
-@since version 3.0.0
-*/
+/// @brief exception indicating other library errors
+/// @sa https://json.nlohmann.me/api/basic_json/other_error/
 class other_error : public exception
 {
   public:
-    static other_error create(int id_, const std::string& what_arg)
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static other_error create(int id_, const std::string& what_arg, BasicJsonContext context)
     {
-        std::string w = exception::name("other_error", id_) + what_arg;
-        return other_error(id_, w.c_str());
+        const std::string w = exception::what_impl("other_error", id_, what_arg, context);
+        return {id_, w.c_str()};
+    }
+
+    template<typename BasicJsonContext, enable_if_t<is_basic_json_context<BasicJsonContext>::value, int> = 0>
+    static other_error create(exception_id id_, const std::string& what_arg, BasicJsonContext context)
+    {
+        return create(static_cast<int>(id_), what_arg, context);
     }
 
   private:
     JSON_HEDLEY_NON_NULL(3)
     other_error(int id_, const char* what_arg) : exception(id_, what_arg) {}
 };
+
+/*!
+@brief helper function to call JSON_THROW from a template
+@note JSON_THROW is a macro that, depending on the JSON_THROW_USER /
+      JSON_TRY_USER / JSON_NOEXCEPTION configuration, may expand to code
+      that does not reference its argument (e.g. `std::abort()`), which
+      would trigger a compilation error if the argument's type depends on
+      a template parameter that is otherwise unused. Wrapping the call in
+      a templated function avoids this and gives the compiler a single
+      place to see the (possibly unused) parameter.
+*/
+template<typename ExceptionType>
+void templated_json_throw(ExceptionType exception)
+{
+    JSON_THROW(exception);
+
+    // JSON_THROW may expand to code that discards its argument (e.g. when
+    // exceptions are disabled) - the cast below avoids an unused-parameter
+    // warning with -Werror in that case
+    (void)exception;
+}
+
+// the context of an exception about j: j itself for a basic_json value (whose
+// path JSON_DIAGNOSTICS shows), none for a view of <nlohmann/json_view.hpp>
+template<typename BasicJsonType, enable_if_t<is_basic_json<BasicJsonType>::value, int> = 0>
+const BasicJsonType * exception_context(const BasicJsonType& j) noexcept
+{
+    return &j;
+}
+
+template<typename View, enable_if_t<is_json_view<View>::value, int> = 0>
+std::nullptr_t exception_context(const View& /*unused*/) noexcept
+{
+    return nullptr;
+}
+
+namespace view
+{
+// the path and bytes of the value of a view (defined in <nlohmann/detail/view/errors.hpp>)
+template<typename View>
+std::string diagnostics_of(const View& v);
+}  // namespace view
+
+// what goes in front of the message of an exception about j: nothing for a
+// basic_json value (exception_context() passes the value itself), the context
+// basic_json would add (JSON_DIAGNOSTICS, JSON_DIAGNOSTIC_POSITIONS) for a view
+template<typename BasicJsonType, enable_if_t<is_basic_json<BasicJsonType>::value, int> = 0>
+const char* exception_prefix(const BasicJsonType& /*unused*/) noexcept
+{
+    return "";
+}
+
+template<typename View, enable_if_t<is_json_view<View>::value, int> = 0>
+std::string exception_prefix(const View& v)
+{
+    return view::diagnostics_of(v);
+}
+
+/*!
+@brief throws because @a j does not have the type a conversion expects
+@param[in] expected  the expected type(s), e.g. "array" or "binary or array"
+@param[in] j         the value with the wrong type
+@throw type_error.302 always
+*/
+template<typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_type_must_be(const char* expected, const BasicJsonType& j)
+{
+    static_cast<void>(expected); // unused when JSON_NOEXCEPTION is defined
+    static_cast<void>(j);
+    JSON_THROW(type_error::create(exception_id::type_mismatch, concat(exception_prefix(j), "type must be ", expected, ", but is ", j.type_name()), exception_context(j)));
+}
+
+/*!
+@brief throws because an operation is not supported for the type of @a j
+@param[in] id_        the id of the type_error exception (at_wrong_type..update_wrong_type)
+@param[in] operation  the operation, e.g. "erase()"
+@param[in] j          the value the operation was called on
+@throw type_error always
+*/
+template<typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_cannot_use_with(const exception_id id_, const char* operation, const BasicJsonType& j)
+{
+    static_cast<void>(id_); // unused when JSON_NOEXCEPTION is defined
+    static_cast<void>(operation);
+    static_cast<void>(j);
+    JSON_THROW(type_error::create(id_, concat("cannot use ", operation, " with ", j.type_name()), &j));
+}
+
+/*!
+@brief throws ExceptionType with a fixed message; kept out of line so that callers do not carry the exception construction
+*/
+template<typename ExceptionType, typename BasicJsonContext>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_literal(const exception_id id_, const char* what_arg, BasicJsonContext context)
+{
+    static_cast<void>(id_); // unused when JSON_NOEXCEPTION is defined
+    static_cast<void>(what_arg);
+    static_cast<void>(context);
+    JSON_THROW(ExceptionType::create(id_, what_arg, context));
+}
+
+// JSON Patch errors; constructed out of line so that patch_inplace() does not carry them
+
+template<typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_patch_add_parent(const BasicJsonType& parent)
+{
+    static_cast<void>(parent);
+    JSON_THROW(out_of_range::create(exception_id::patch_add_parent_not_container, concat("cannot add value: the JSON Patch 'add' target's parent is of type ", parent.type_name(), ", but must be an object or array"), &parent));
+}
+
+template<typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_patch_remove_parent(const BasicJsonType& parent)
+{
+    static_cast<void>(parent);
+    JSON_THROW(out_of_range::create(exception_id::patch_remove_parent_not_container, concat("cannot remove value: the JSON Patch 'remove' target's parent is of type ", parent.type_name(), ", but must be an object or array"), &parent));
+}
+
+template<typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_patch_not_an_array(const BasicJsonType& j)
+{
+    static_cast<void>(j);
+    JSON_THROW(parse_error::create(exception_id::patch_not_an_array, 0, "JSON patch must be an array of objects", &j));
+}
+
+template<typename StringType, typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_patch_missing_member(const StringType& op, const StringType& member, const bool string_type, const BasicJsonType& val)
+{
+    static_cast<void>(op);
+    static_cast<void>(member);
+    static_cast<void>(string_type);
+    static_cast<void>(val);
+    // context-sensitive error message
+    JSON_THROW(parse_error::create(exception_id::patch_invalid_operation, 0, concat((op == "op") ? std::string("operation") : concat("operation '", op, '\''), string_type ? " must have string member '" : " must have member '", member, "'"), &val));
+}
+
+template<typename StringType, typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_patch_move_into_child(const StringType& from_path, const StringType& path, const BasicJsonType& result)
+{
+    static_cast<void>(from_path);
+    static_cast<void>(path);
+    static_cast<void>(result);
+    JSON_THROW(out_of_range::create(exception_id::patch_move_into_child, concat("cannot move value: 'from' path '", from_path, "' is a proper prefix of 'path' '", path, "'"), &result));
+}
+
+template<typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_patch_test_failed(const BasicJsonType& val)
+{
+    static_cast<void>(val);
+    JSON_THROW(other_error::create(exception_id::patch_test_failed, concat("unsuccessful: ", val.dump()), &val));
+}
+
+template<typename StringType, typename BasicJsonType>
+JSON_HEDLEY_NO_RETURN JSON_HEDLEY_NEVER_INLINE void throw_patch_invalid_operation(const StringType& op, const BasicJsonType& val)
+{
+    static_cast<void>(op);
+    static_cast<void>(val);
+    JSON_THROW(parse_error::create(exception_id::patch_invalid_operation, 0, concat("operation value '", op, "' is invalid"), &val));
+}
+
 }  // namespace detail
-}  // namespace nlohmann
+NLOHMANN_JSON_NAMESPACE_END
+
+#if defined(__clang__)
+    JSON_HEDLEY_DIAGNOSTIC_POP
+#endif
